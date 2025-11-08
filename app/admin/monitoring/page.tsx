@@ -137,6 +137,10 @@ export default function MonitoringDashboard() {
 
       setViolations(violationsData || [])
 
+      // Load banned IPs
+      const bannedIPsData = await getBannedIPs()
+      setBannedIPs(bannedIPsData)
+
       // Calculate unique IPs in last 24h
       const uniqueIps = new Set(rateLimits?.map((rl: RateLimit) => rl.ip_address) || []).size
 
@@ -252,6 +256,17 @@ export default function MonitoringDashboard() {
     } catch (err) {
       console.error('Error banning IP:', err)
       alert('Error banning IP address')
+    }
+  }
+
+  const handleUnbanIP = async (ipAddress: string) => {
+    try {
+      await unbanIP(ipAddress)
+      alert(`IP ${ipAddress} unbanned successfully`)
+      loadStats() // Refresh data
+    } catch (err) {
+      console.error('Error unbanning IP:', err)
+      alert('Error unbanning IP address')
     }
   }
 
@@ -609,6 +624,76 @@ export default function MonitoringDashboard() {
                         className="px-3 py-1 bg-red-600 text-white text-xs rounded-md hover:bg-red-700 transition-colors"
                       >
                         🚫 Ban IP
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </div>
+
+      {/* Banned IPs Management */}
+      <div className="bg-white rounded-lg shadow mt-8">
+        <div className="px-6 py-4 border-b border-gray-200">
+          <h2 className="text-lg font-semibold text-gray-900">Banned IP Addresses</h2>
+          <p className="text-sm text-gray-600 mt-1">Manage banned IP addresses</p>
+        </div>
+        
+        <div className="overflow-x-auto">
+          {isLoading ? (
+            <div className="text-center py-12">
+              <div className="text-gray-600">Loading banned IPs...</div>
+            </div>
+          ) : bannedIPs.length === 0 ? (
+            <div className="text-center py-12">
+              <div className="text-green-400 text-4xl mb-4">✅</div>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">No banned IPs</h3>
+              <p className="text-gray-600">All IP addresses are currently allowed</p>
+            </div>
+          ) : (
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    IP Address
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Reason
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Banned At
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Expires At
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {bannedIPs.map((ban, index) => (
+                  <tr key={`${ban.id}-${index}`} className="hover:bg-red-50">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 font-mono">
+                      {ban.ip_address}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {ban.reason || 'No reason provided'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {format(new Date(ban.created_at), 'MMM d, HH:mm')}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {ban.expires_at ? format(new Date(ban.expires_at), 'MMM d, HH:mm') : 'Permanent'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                      <button
+                        onClick={() => handleUnbanIP(ban.ip_address)}
+                        className="px-3 py-1 bg-green-600 text-white text-xs rounded-md hover:bg-green-700 transition-colors"
+                      >
+                        ✅ Unban
                       </button>
                     </td>
                   </tr>

@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { recordRateLimit } from '@/lib/rate-limit'
 
+// Force this route to be dynamic since we access headers
+export const dynamic = 'force-dynamic'
+
 export async function POST(request: NextRequest) {
   try {
     // Get client IP address

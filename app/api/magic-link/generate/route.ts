@@ -5,8 +5,6 @@ import crypto from 'crypto'
 
 export const dynamic = 'force-dynamic'
 
-const resend = new Resend(process.env.RESEND_API_KEY)
-
 export async function POST(request: NextRequest) {
   try {
     const { email } = await request.json()
@@ -47,9 +45,11 @@ export async function POST(request: NextRequest) {
     // Create magic link URL
     const magicUrl = `${request.nextUrl.origin}/auth/magic?token=${token}`
 
-    // Send email with magic link
+    // Send email with magic link (only if API key is available)
     if (process.env.RESEND_API_KEY) {
       try {
+        const resend = new Resend(process.env.RESEND_API_KEY)
+        
         await resend.emails.send({
           from: 'Meetup <noreply@numstro.com>',
           to: email,

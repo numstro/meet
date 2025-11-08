@@ -80,70 +80,25 @@ export default function AdminDashboard() {
   }
 
   const deletePoll = async (pollId: string) => {
-    // Single confirmation dialog
     if (!confirm(`Are you sure you want to delete this poll? This action cannot be undone.`)) {
       return
     }
 
     setIsDeleting(pollId)
     try {
-      console.log('Starting deletion for poll:', pollId)
-      
-      // Delete poll options first
-      console.log('Deleting poll options...')
-      const { error: optionsError } = await supabase
-        .from('poll_options')
-        .delete()
-        .eq('poll_id', pollId)
-
-      if (optionsError) {
-        console.error('Options delete error:', optionsError)
-        throw optionsError
-      }
-
-      // Delete poll responses
-      console.log('Deleting poll responses...')
-      const { error: responsesError } = await supabase
-        .from('poll_responses')
-        .delete()
-        .eq('poll_id', pollId)
-
-      if (responsesError) {
-        console.error('Responses delete error:', responsesError)
-        throw responsesError
-      }
-
-      // Delete the poll
-      console.log('Deleting poll...')
-      const { error: pollError } = await supabase
+      // Just delete the poll - CASCADE should handle the rest
+      const { error } = await supabase
         .from('polls')
         .delete()
         .eq('id', pollId)
 
-      if (pollError) {
-        console.error('Poll delete error:', pollError)
-        throw pollError
-      }
+      if (error) throw error
 
-      console.log('Poll deleted successfully, updating UI...')
-      
-      // Update local state properly
-      setPolls(prevPolls => {
-        const newPolls = prevPolls.filter(poll => poll.id !== pollId)
-        console.log('Updated polls list:', newPolls.length, 'polls remaining')
-        return newPolls
-      })
-      
-      // Force refresh polls data to ensure consistency
-      setTimeout(() => {
-        console.log('Refreshing data...')
-        loadData()
-      }, 100)
-      
-      // No success alert - just silent success
+      // Remove from UI immediately
+      setPolls(prevPolls => prevPolls.filter(poll => poll.id !== pollId))
     } catch (err) {
-      console.error('Error deleting poll:', err)
-      alert('Error deleting poll: ' + (err as Error).message)
+      console.error('Delete failed:', err)
+      alert('Delete failed: ' + (err as Error).message)
     } finally {
       setIsDeleting(null)
     }

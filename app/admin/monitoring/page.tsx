@@ -112,10 +112,14 @@ export default function MonitoringDashboard() {
         .gte('created_at', yesterday.toISOString())
 
       // Get all rate limits for email-IP correlation analysis
-      const { data: allRateLimits } = await supabase
+      const { data: allRateLimits, error: allRateLimitsError } = await supabase
         .from('rate_limits')
         .select('ip_address, creator_email, creator_name, created_at')
         .order('created_at', { ascending: true })
+
+      if (allRateLimitsError) {
+        console.error('Error fetching all rate limits:', allRateLimitsError)
+      }
 
       // Get rate limit violations
       const { data: violationsData } = await supabase
@@ -155,7 +159,10 @@ export default function MonitoringDashboard() {
         last_seen: string
       }> = {}
 
+      console.log('Processing rate limits for correlations:', allRateLimits?.length || 0, 'records')
+      
       allRateLimits?.forEach((rl: RateLimit) => {
+        console.log('Processing record:', rl.creator_email, rl.ip_address, rl.creator_name)
         if (rl.creator_email) {
           if (!emailIPCorrelationMap[rl.creator_email]) {
             emailIPCorrelationMap[rl.creator_email] = {
@@ -187,6 +194,8 @@ export default function MonitoringDashboard() {
           last_seen: data.last_seen
         }))
         .sort((a, b) => b.poll_count - a.poll_count) // Sort by poll count (highest first)
+
+      console.log('Final email-IP correlations:', emailIPCorrelations)
 
       setStats(dashboardStats)
       setEmailIPCorrelations(emailIPCorrelations)

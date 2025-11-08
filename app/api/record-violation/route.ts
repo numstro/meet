@@ -5,6 +5,8 @@ export const dynamic = 'force-dynamic'
 
 export async function POST(request: NextRequest) {
   try {
+    console.log('🚨 VIOLATION ENDPOINT CALLED')
+    
     // Get client IP address
     const forwardedFor = request.headers.get('x-forwarded-for')
     const realIp = request.headers.get('x-real-ip')
@@ -18,6 +20,15 @@ export async function POST(request: NextRequest) {
     // Get violation details from request body
     const { creatorEmail, creatorName, violationType, attemptedAction } = await request.json()
 
+    console.log('🚨 VIOLATION DATA:', {
+      ipAddress,
+      creatorEmail,
+      creatorName,
+      violationType,
+      attemptedAction,
+      userAgent
+    })
+
     // Record the violation
     await recordViolation(
       ipAddress,
@@ -28,11 +39,13 @@ export async function POST(request: NextRequest) {
       attemptedAction || 'create_poll'
     )
 
+    console.log('🚨 VIOLATION RECORDED SUCCESSFULLY')
+
     return NextResponse.json({ success: true })
   } catch (error) {
-    console.error('Failed to record violation:', error)
+    console.error('🚨 VIOLATION RECORDING ERROR:', error)
     return NextResponse.json(
-      { error: 'Failed to record violation' },
+      { error: 'Failed to record violation', details: error.message },
       { status: 500 }
     )
   }

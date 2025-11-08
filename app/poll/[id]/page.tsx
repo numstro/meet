@@ -453,15 +453,20 @@ export default function PollPage() {
                       const isTopChoice = bestOptions.length > 0 && bestOptions[0]?.option_id === option.id
                       
                       return (
-                        <th key={option.id} className={`text-center p-2 border-r border-gray-200 min-w-[80px] ${isTopChoice ? 'bg-red-100 border-2 border-red-400' : ''}`}>
+                        <th key={option.id} className={`text-center p-2 border-r border-gray-200 min-w-[90px] ${isTopChoice ? 'bg-red-100 border-2 border-red-400' : ''}`}>
                           <div className="text-xs text-gray-500 mb-1">
                             {format(new Date(option.option_date), 'MMM')}
                           </div>
                           <div className="font-bold text-lg">
                             {format(new Date(option.option_date), 'd')}
                           </div>
-                          <div className="text-xs text-gray-500 uppercase">
+                          <div className="text-xs text-gray-500 uppercase mb-1">
                             {format(new Date(option.option_date), 'EEE')}
+                          </div>
+                          <div className="text-xs font-medium text-gray-700">
+                            {option.option_text === 'morning' && '🌅 Morning'}
+                            {option.option_text === 'afternoon' && '☀️ Afternoon'}
+                            {option.option_text === 'evening' && '🌙 Evening'}
                           </div>
                           {yesCount > 0 && (
                             <div className="bg-blue-500 text-white text-xs rounded-full px-2 py-1 mt-1 inline-block">
@@ -605,40 +610,72 @@ export default function PollPage() {
               </div>
             </div>
 
-            {/* Time Options */}
+            {/* Time Options - Grid Layout */}
             <div>
               <h3 className="text-lg font-medium mb-4">Select your availability for each option:</h3>
-              <div className="space-y-3">
-                {options.map((option) => {
-                  const { date, time } = formatDateTime(option.option_date, option.option_text || undefined)
-                  const currentResponse = userResponses[option.id]
-                  
-                  return (
-                    <div key={option.id} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
-                      <div>
-                        <div className="font-medium">{date}</div>
-                        <div className="text-sm text-gray-600">{time}</div>
-                      </div>
-                      
-                      <div className="flex space-x-2">
-                        {(['yes', 'maybe', 'no'] as const).map((response) => (
-                          <button
-                            key={response}
-                            type="button"
-                            onClick={() => handleResponseChange(option.id, response)}
-                            className={`px-3 py-2 text-sm rounded-md border transition-colors ${
-                              currentResponse === response
-                                ? getResponseColor(response)
-                                : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'
-                            }`}
-                          >
-                            {getResponseIcon(response)} {response.charAt(0).toUpperCase() + response.slice(1)}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )
-                })}
+              <div className="overflow-x-auto border border-gray-200 rounded-lg">
+                <table className="w-full border-collapse">
+                  <thead>
+                    <tr className="bg-gray-50">
+                      <th className="text-left p-3 border-r border-gray-200 min-w-[100px] font-medium">
+                        Your Response
+                      </th>
+                      {options.map((option) => (
+                        <th key={option.id} className="text-center p-2 border-r border-gray-200 min-w-[90px]">
+                          <div className="text-xs text-gray-500 mb-1">
+                            {format(new Date(option.option_date), 'MMM')}
+                          </div>
+                          <div className="font-bold text-lg">
+                            {format(new Date(option.option_date), 'd')}
+                          </div>
+                          <div className="text-xs text-gray-500 uppercase mb-1">
+                            {format(new Date(option.option_date), 'EEE')}
+                          </div>
+                          <div className="text-xs font-medium text-gray-700">
+                            {option.option_text === 'morning' && '🌅 Morning'}
+                            {option.option_text === 'afternoon' && '☀️ Afternoon'}
+                            {option.option_text === 'evening' && '🌙 Evening'}
+                          </div>
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td className="p-3 border-r border-b border-gray-200 font-medium">
+                        Click to vote:
+                      </td>
+                      {options.map((option) => {
+                        const currentResponse = userResponses[option.id]
+                        
+                        return (
+                          <td key={option.id} className="text-center p-2 border-r border-b border-gray-200">
+                            <div className="flex flex-col space-y-1">
+                              {(['yes', 'maybe', 'no'] as const).map((response) => (
+                                <button
+                                  key={response}
+                                  type="button"
+                                  onClick={() => handleResponseChange(option.id, response)}
+                                  className={`w-8 h-8 rounded-full flex items-center justify-center mx-auto text-sm font-bold transition-colors ${
+                                    currentResponse === response
+                                      ? response === 'yes' 
+                                        ? 'bg-green-500 text-white border-2 border-green-600' 
+                                        : response === 'maybe'
+                                        ? 'bg-yellow-400 text-white border-2 border-yellow-500'
+                                        : 'bg-gray-400 text-white border-2 border-gray-500'
+                                      : 'bg-gray-100 text-gray-400 hover:bg-gray-200 border border-gray-300'
+                                  }`}
+                                >
+                                  {response === 'yes' ? '✓' : response === 'maybe' ? '?' : '✗'}
+                                </button>
+                              ))}
+                            </div>
+                          </td>
+                        )
+                      })}
+                    </tr>
+                  </tbody>
+                </table>
               </div>
             </div>
 

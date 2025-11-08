@@ -22,7 +22,7 @@ export default function CreatePollPage() {
     creatorName: '',
     creatorEmail: '',
     location: '',
-    deadline: format(addDays(new Date(), 7), 'MM/dd/yyyy') // Default to 1 week from today
+    deadline: format(addDays(new Date(), 7), 'yyyy-MM-dd') // Default to 1 week from today
   })
   
   const [timeOptions, setTimeOptions] = useState<TimeOption[]>([
@@ -309,12 +309,12 @@ export default function CreatePollPage() {
                     creatorName: '',
                     creatorEmail: '',
                     location: '',
-                    deadline: format(addDays(new Date(), 7), 'MM/dd/yyyy')
-                  })
-                  setTimeOptions([{
-                    date: format(addDays(new Date(), 1), 'yyyy-MM-dd'),
-                    timeBuckets: ['morning']
-                  }])
+                deadline: format(addDays(new Date(), 7), 'yyyy-MM-dd')
+              })
+              setTimeOptions([{
+                date: format(addDays(new Date(), 1), 'yyyy-MM-dd'),
+                timeBuckets: ['morning']
+              }])
                 }}
                 className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-colors"
               >
@@ -424,7 +424,11 @@ export default function CreatePollPage() {
                   id="deadline"
                   value={pollData.deadline}
                   onChange={(e) => setPollData({ ...pollData, deadline: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-lg"
+                  style={{ 
+                    fontSize: '16px',
+                    minHeight: '44px'
+                  }}
                 />
               </div>
             </div>
@@ -454,7 +458,11 @@ export default function CreatePollPage() {
                       type="date"
                       value={option.date}
                       onChange={(e) => updateTimeOption(index, 'date', e.target.value)}
-                      className="w-48 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-48 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-lg"
+                      style={{ 
+                        fontSize: '16px',
+                        minHeight: '44px'
+                      }}
                     />
                   </div>
                   

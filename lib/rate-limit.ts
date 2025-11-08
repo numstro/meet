@@ -10,12 +10,24 @@ export interface RateLimitResult {
 const RATE_LIMIT_MAX = 5 // Maximum polls per day
 const RATE_LIMIT_WINDOW = 24 * 60 * 60 * 1000 // 24 hours in milliseconds
 
+// Admin IPs that bypass rate limiting
+const ADMIN_IPS = ['75.54.101.187'] // Kenny's IP
+
 export async function checkRateLimit(ipAddress: string): Promise<RateLimitResult> {
   // In demo mode, always allow
   if (isDemoMode) {
     return {
       allowed: true,
       remaining: RATE_LIMIT_MAX - 1,
+      resetTime: new Date(Date.now() + RATE_LIMIT_WINDOW)
+    }
+  }
+
+  // Admin IPs bypass rate limiting
+  if (ADMIN_IPS.includes(ipAddress)) {
+    return {
+      allowed: true,
+      remaining: 999,
       resetTime: new Date(Date.now() + RATE_LIMIT_WINDOW)
     }
   }

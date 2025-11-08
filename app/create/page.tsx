@@ -14,6 +14,7 @@ export default function CreatePollPage() {
   const router = useRouter()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState('')
+  const [createdPollId, setCreatedPollId] = useState<string | null>(null)
   
   const [pollData, setPollData] = useState({
     title: '',
@@ -21,7 +22,7 @@ export default function CreatePollPage() {
     creatorName: '',
     creatorEmail: '',
     location: '',
-    deadline: ''
+    deadline: format(addDays(new Date(), 7), 'MM/dd/yyyy') // Default to 1 week from today
   })
   
   const [timeOptions, setTimeOptions] = useState<TimeOption[]>([
@@ -199,12 +200,11 @@ export default function CreatePollPage() {
 
       // No need to record rate limits separately - polls table is now the source of truth!
 
-      // Redirect to the poll page
+      // Show share link instead of redirecting
       if (isDemoMode) {
-        // In demo mode, redirect to the existing demo poll instead of the temporary one
-        router.push('/poll/1')  // Use the demo poll ID
+        setCreatedPollId('1') // Demo poll ID
       } else {
-        router.push(`/poll/${pollId}`)
+        setCreatedPollId(pollId)
       }
     } catch (err: any) {
       setError(err.message || 'Failed to create poll')
@@ -259,6 +259,73 @@ export default function CreatePollPage() {
           <p className="text-red-800">{error}</p>
         </div>
       )}
+
+      {/* Success - Share Link */}
+      {createdPollId && (
+        <div className="mb-6 p-6 bg-green-50 border border-green-200 rounded-md">
+          <div className="flex items-center mb-4">
+            <div className="text-green-400 text-2xl mr-3">🎉</div>
+            <h3 className="text-green-800 font-semibold text-lg">Poll Created Successfully!</h3>
+          </div>
+          
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-green-800 mb-2">Share this link with participants:</label>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={`${window.location.origin}/poll/${createdPollId}`}
+                  readOnly
+                  className="flex-1 px-3 py-2 bg-white border border-green-300 rounded-md font-mono text-sm"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard.writeText(`${window.location.origin}/poll/${createdPollId}`)
+                    // You could add a toast notification here
+                  }}
+                  className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
+                >
+                  📋 Copy
+                </button>
+              </div>
+            </div>
+            
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => router.push(`/poll/${createdPollId}`)}
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+              >
+                View Poll
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setCreatedPollId(null)
+                  setPollData({
+                    title: '',
+                    description: '',
+                    creatorName: '',
+                    creatorEmail: '',
+                    location: '',
+                    deadline: format(addDays(new Date(), 7), 'MM/dd/yyyy')
+                  })
+                  setTimeOptions([{
+                    date: format(addDays(new Date(), 1), 'yyyy-MM-dd'),
+                    timeBuckets: ['morning']
+                  }])
+                }}
+                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-colors"
+              >
+                Create Another Poll
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {!createdPollId && (
 
       <form onSubmit={handleSubmit} className="space-y-8">
         {/* Basic Info */}
@@ -387,7 +454,7 @@ export default function CreatePollPage() {
                       type="date"
                       value={option.date}
                       onChange={(e) => updateTimeOption(index, 'date', e.target.value)}
-                      className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-48 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
                   
@@ -462,6 +529,7 @@ export default function CreatePollPage() {
           </button>
         </div>
       </form>
+      )}
     </div>
   )
 }

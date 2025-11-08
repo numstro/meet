@@ -52,6 +52,8 @@ export async function checkRateLimit(ipAddress: string): Promise<RateLimitResult
     const windowStart = new Date(now.getTime() - RATE_LIMIT_WINDOW)
 
   // Count actual polls created by this IP in the last 24 hours
+  console.log(`🔍 RATE LIMIT CHECK: IP ${ipAddress}, window start: ${windowStart.toISOString()}`)
+  
   const { data, error } = await supabase
     .from('polls')
     .select('*')
@@ -59,18 +61,22 @@ export async function checkRateLimit(ipAddress: string): Promise<RateLimitResult
     .gte('created_at', windowStart.toISOString())
     .order('created_at', { ascending: false })
 
-    if (error) {
-      console.error('Rate limit check error:', error)
-      // If we can't check rate limits, allow the request but log the error
-      return {
-        allowed: true,
-        remaining: RATE_LIMIT_MAX - 1,
-        resetTime: new Date(now.getTime() + RATE_LIMIT_WINDOW)
-      }
+  console.log(`🔍 RATE LIMIT QUERY RESULT: error=${!!error}, data count=${data?.length || 0}`)
+
+  if (error) {
+    console.error('🚨 RATE LIMIT CHECK ERROR:', error)
+    // If we can't check rate limits, allow the request but log the error
+    return {
+      allowed: true,
+      remaining: RATE_LIMIT_MAX - 1,
+      resetTime: new Date(now.getTime() + RATE_LIMIT_WINDOW)
     }
+  }
 
   const pollsCreated = data?.length || 0
   const allowed = pollsCreated < RATE_LIMIT_MAX
+
+  console.log(`🔍 RATE LIMIT DECISION: ${pollsCreated}/${RATE_LIMIT_MAX} polls, allowed=${allowed}`)
 
   // Simple violation logging for repeat offenders
   if (!allowed) {

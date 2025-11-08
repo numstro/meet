@@ -116,7 +116,7 @@ export default function AdminDashboard() {
       
       // Force refresh polls data to ensure consistency
       setTimeout(() => {
-        loadPolls()
+        loadData()
       }, 100)
       
       // No success alert - just silent success

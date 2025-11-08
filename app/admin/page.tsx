@@ -87,35 +87,56 @@ export default function AdminDashboard() {
 
     setIsDeleting(pollId)
     try {
+      console.log('Starting deletion for poll:', pollId)
+      
       // Delete poll options first
+      console.log('Deleting poll options...')
       const { error: optionsError } = await supabase
         .from('poll_options')
         .delete()
         .eq('poll_id', pollId)
 
-      if (optionsError) throw optionsError
+      if (optionsError) {
+        console.error('Options delete error:', optionsError)
+        throw optionsError
+      }
 
       // Delete poll responses
+      console.log('Deleting poll responses...')
       const { error: responsesError } = await supabase
         .from('poll_responses')
         .delete()
         .eq('poll_id', pollId)
 
-      if (responsesError) throw responsesError
+      if (responsesError) {
+        console.error('Responses delete error:', responsesError)
+        throw responsesError
+      }
 
       // Delete the poll
+      console.log('Deleting poll...')
       const { error: pollError } = await supabase
         .from('polls')
         .delete()
         .eq('id', pollId)
 
-      if (pollError) throw pollError
+      if (pollError) {
+        console.error('Poll delete error:', pollError)
+        throw pollError
+      }
 
+      console.log('Poll deleted successfully, updating UI...')
+      
       // Update local state properly
-      setPolls(prevPolls => prevPolls.filter(poll => poll.id !== pollId))
+      setPolls(prevPolls => {
+        const newPolls = prevPolls.filter(poll => poll.id !== pollId)
+        console.log('Updated polls list:', newPolls.length, 'polls remaining')
+        return newPolls
+      })
       
       // Force refresh polls data to ensure consistency
       setTimeout(() => {
+        console.log('Refreshing data...')
         loadData()
       }, 100)
       

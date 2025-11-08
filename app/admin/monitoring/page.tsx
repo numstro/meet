@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react'
 import { supabase, isDemoMode } from '@/lib/supabase'
-import { format, subDays, startOfDay, endOfDay } from 'date-fns'
+import { format, subDays, startOfDay, endOfDay, addDays } from 'date-fns'
+import { banIP, unbanIP, getBannedIPs } from '@/lib/rate-limit'
 import Link from 'next/link'
 
 interface RateLimit {
@@ -60,6 +61,15 @@ export default function MonitoringDashboard() {
   const [emailIPCorrelations, setEmailIPCorrelations] = useState<EmailIPCorrelation[]>([])
   const [violations, setViolations] = useState<RateLimitViolation[]>([])
   const [isLoading, setIsLoading] = useState(false)
+  
+  // IP Ban Management state
+  const [bannedIPs, setBannedIPs] = useState<any[]>([])
+  const [showBanForm, setShowBanForm] = useState(false)
+  const [banFormData, setBanFormData] = useState({
+    ip_address: '',
+    reason: '',
+    duration: '24' // hours
+  })
 
   // Simple password protection (same as admin)
   const ADMIN_PASSWORD = 'kennyadmin2024'
@@ -552,6 +562,9 @@ export default function MonitoringDashboard() {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Violation Details
                   </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Actions
+                  </th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
@@ -572,6 +585,14 @@ export default function MonitoringDashboard() {
                           Had {violation.current_count}/{violation.limit_exceeded} polls
                         </div>
                       </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                      <button
+                        onClick={() => handleBanIP(violation.ip_address)}
+                        className="px-3 py-1 bg-red-600 text-white text-xs rounded-md hover:bg-red-700 transition-colors"
+                      >
+                        🚫 Ban IP
+                      </button>
                     </td>
                   </tr>
                 ))}

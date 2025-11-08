@@ -160,7 +160,7 @@ export const createDemoSupabase = () => ({
     }),
     eq: (column: string, value: any) => {
       console.log('Demo: Would filter by', { column, value })
-      let filteredData = []
+      let filteredData: any[] = []
       
       if (table === 'polls') {
         filteredData = demoPolls.filter((p: any) => p[column] === value)

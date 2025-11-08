@@ -125,6 +125,21 @@ export default function CreatePollPage() {
         const rateLimitData = await response.json()
         
         if (!response.ok || !rateLimitData.allowed) {
+          // Record violation with user details when blocked
+          try {
+            await fetch('/api/rate-limit/record', { 
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                creatorEmail: pollData.creatorEmail,
+                creatorName: pollData.creatorName,
+                violationType: 'rate_limit_exceeded'
+              })
+            })
+          } catch (violationError) {
+            console.error('Failed to record detailed violation:', violationError)
+          }
+          
           const resetDate = new Date(rateLimitData.resetTime).toLocaleString()
           const reason = rateLimitData.reason || 'Rate limit exceeded'
           setError(`${reason}. Rate limit resets at ${resetDate}`)

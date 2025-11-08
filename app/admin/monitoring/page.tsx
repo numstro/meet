@@ -111,15 +111,12 @@ export default function MonitoringDashboard() {
         .select('ip_address, creator_email, creator_name, created_at')
         .gte('created_at', yesterday.toISOString())
 
-      // Get all rate limits for email-IP correlation analysis
-      const { data: allRateLimits, error: allRateLimitsError } = await supabase
+      // Get all rate limits for email-IP correlation analysis - SIMPLIFIED
+      const { data: allRateLimits } = await supabase
         .from('rate_limits')
-        .select('ip_address, creator_email, creator_name, created_at')
-        .order('created_at', { ascending: true })
-
-      if (allRateLimitsError) {
-        console.error('Error fetching all rate limits:', allRateLimitsError)
-      }
+        .select('*')
+        .not('creator_email', 'is', null)
+        .order('created_at', { ascending: false })
 
       // Get rate limit violations
       const { data: violationsData } = await supabase
@@ -150,52 +147,42 @@ export default function MonitoringDashboard() {
         rateLimitHits
       }
 
-      // Process email-to-IP correlations
-      const emailIPCorrelationMap: Record<string, {
-        name: string
-        ip_addresses: Set<string>
-        poll_count: number
-        first_seen: string
-        last_seen: string
-      }> = {}
-
-      console.log('Processing rate limits for correlations:', allRateLimits?.length || 0, 'records')
+      // SIMPLIFIED email-to-IP correlations - just show the raw data
+      const emailIPCorrelations: EmailIPCorrelation[] = []
       
-      allRateLimits?.forEach((rl: RateLimit) => {
-        console.log('Processing record:', rl.creator_email, rl.ip_address, rl.creator_name)
-        if (rl.creator_email) {
-          if (!emailIPCorrelationMap[rl.creator_email]) {
-            emailIPCorrelationMap[rl.creator_email] = {
-              name: rl.creator_name || 'Unknown',
-              ip_addresses: new Set(),
-              poll_count: 0,
-              first_seen: rl.created_at,
-              last_seen: rl.created_at
+      if (allRateLimits && allRateLimits.length > 0) {
+        // Group by email
+        const emailGroups: Record<string, any[]> = {}
+        
+        allRateLimits.forEach((record: any) => {
+          if (record.creator_email && record.creator_email.trim()) {
+            const email = record.creator_email.trim()
+            if (!emailGroups[email]) {
+              emailGroups[email] = []
             }
+            emailGroups[email].push(record)
           }
+        })
+        
+        // Convert to correlation format
+        Object.entries(emailGroups).forEach(([email, records]) => {
+          const ips = [...new Set(records.map(r => r.ip_address))]
+          const names = records.map(r => r.creator_name).filter(n => n)
+          const latestName = names[names.length - 1] || 'Unknown'
           
-          const correlation = emailIPCorrelationMap[rl.creator_email]
-          correlation.ip_addresses.add(rl.ip_address)
-          correlation.poll_count++
-          correlation.last_seen = rl.created_at
-          if (rl.creator_name) {
-            correlation.name = rl.creator_name // Update to latest name
-          }
-        }
-      })
-
-      const emailIPCorrelations: EmailIPCorrelation[] = Object.entries(emailIPCorrelationMap)
-        .map(([email, data]) => ({
-          email,
-          name: data.name,
-          ip_addresses: Array.from(data.ip_addresses),
-          poll_count: data.poll_count,
-          first_seen: data.first_seen,
-          last_seen: data.last_seen
-        }))
-        .sort((a, b) => b.poll_count - a.poll_count) // Sort by poll count (highest first)
-
-      console.log('Final email-IP correlations:', emailIPCorrelations)
+          emailIPCorrelations.push({
+            email,
+            name: latestName,
+            ip_addresses: ips,
+            poll_count: records.length,
+            first_seen: records[records.length - 1].created_at,
+            last_seen: records[0].created_at
+          })
+        })
+        
+        // Sort by poll count
+        emailIPCorrelations.sort((a, b) => b.poll_count - a.poll_count)
+      }
 
       setStats(dashboardStats)
       setEmailIPCorrelations(emailIPCorrelations)

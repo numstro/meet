@@ -39,7 +39,11 @@ export async function POST(request: NextRequest) {
 
     if (dbError) {
       console.error('Database error:', dbError)
-      return NextResponse.json({ error: 'Failed to generate magic link' }, { status: 500 })
+      return NextResponse.json({ 
+        error: 'Failed to generate magic link', 
+        details: dbError.message,
+        code: dbError.code 
+      }, { status: 500 })
     }
 
     // Create magic link URL

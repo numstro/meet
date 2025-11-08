@@ -423,92 +423,107 @@ export default function PollPage() {
         </div>
       </div>
 
-      {/* Detailed Results */}
+      {/* Doodle-style Grid Results */}
       <div className="bg-white rounded-lg shadow p-6 mb-8">
         <h2 className="text-xl font-semibold mb-4">📊 Voting Results</h2>
         
         {summary.length === 0 ? (
           <p className="text-gray-500">No responses yet. Be the first to vote!</p>
         ) : (
-          <div className="space-y-6">
+          <div>
             <div className="text-sm text-gray-600 mb-4">
-              {summary.reduce((sum, s) => sum + s.total_responses, 0)} total responses from{' '}
               {new Set(responses.map(r => r.participant_email)).size} participants
             </div>
             
-            {/* Detailed breakdown for each option */}
-            {options.map((option) => {
-              const { date, time } = formatDateTime(option.option_date, option.option_text || undefined)
-              const optionResponses = responses.filter(r => r.option_id === option.id)
-              const yesVotes = optionResponses.filter(r => r.response === 'yes')
-              const maybeVotes = optionResponses.filter(r => r.response === 'maybe')
-              const noVotes = optionResponses.filter(r => r.response === 'no')
-              const isTopChoice = getBestOptions()[0]?.option_id === option.id
-              
-              return (
-                <div key={option.id} className={`border rounded-lg p-4 ${isTopChoice ? 'border-green-300 bg-green-50' : 'border-gray-200'}`}>
-                  <div className="flex items-center justify-between mb-3">
-                    <div>
-                      <div className="font-medium text-lg">
-                        {isTopChoice && '🏆 '}{date}
+            {/* Grid Table */}
+            <div className="overflow-x-auto border border-gray-200 rounded-lg">
+              <table className="w-full border-collapse">
+                <thead>
+                  <tr className="bg-gray-50">
+                    <th className="text-left p-3 border-r border-gray-200 min-w-[150px] font-medium">
+                      <div className="flex items-center space-x-2">
+                        <span>{new Set(responses.map(r => r.participant_email)).size} participants</span>
+                        <button className="text-blue-600 hover:text-blue-800 text-lg">➕</button>
                       </div>
-                      <div className="text-gray-600">{time}</div>
-                    </div>
-                    <div className="flex items-center space-x-4 text-sm">
-                      <span className="text-green-600 font-medium">✅ {yesVotes.length}</span>
-                      <span className="text-yellow-600 font-medium">❓ {maybeVotes.length}</span>
-                      <span className="text-red-600 font-medium">❌ {noVotes.length}</span>
-                    </div>
-                  </div>
-                  
-                  {/* Show who voted for what */}
-                  <div className="grid md:grid-cols-3 gap-4 text-sm">
-                    {yesVotes.length > 0 && (
-                      <div>
-                        <div className="font-medium text-green-700 mb-1">✅ Available:</div>
-                        <div className="space-y-1">
-                          {yesVotes.map(vote => (
-                            <div key={vote.id} className="text-green-600">
-                              {vote.participant_name}
+                    </th>
+                    {options.map((option) => {
+                      const optionSummary = summary.find(s => s.option_id === option.id)
+                      const yesCount = optionSummary?.yes_count || 0
+                      const bestOptions = getBestOptions()
+                      const isTopChoice = bestOptions.length > 0 && bestOptions[0]?.option_id === option.id
+                      
+                      return (
+                        <th key={option.id} className={`text-center p-2 border-r border-gray-200 min-w-[80px] ${isTopChoice ? 'bg-red-100 border-2 border-red-400' : ''}`}>
+                          <div className="text-xs text-gray-500 mb-1">
+                            {format(new Date(option.option_date), 'MMM')}
+                          </div>
+                          <div className="font-bold text-lg">
+                            {format(new Date(option.option_date), 'd')}
+                          </div>
+                          <div className="text-xs text-gray-500 uppercase">
+                            {format(new Date(option.option_date), 'EEE')}
+                          </div>
+                          {yesCount > 0 && (
+                            <div className="bg-blue-500 text-white text-xs rounded-full px-2 py-1 mt-1 inline-block">
+                              ✓ {yesCount}
                             </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
+                          )}
+                        </th>
+                      )
+                    })}
+                  </tr>
+                </thead>
+                <tbody>
+                  {Array.from(new Set(responses.map(r => r.participant_email))).map((email, index) => {
+                    const participant = responses.find(r => r.participant_email === email)
                     
-                    {maybeVotes.length > 0 && (
-                      <div>
-                        <div className="font-medium text-yellow-700 mb-1">❓ Maybe:</div>
-                        <div className="space-y-1">
-                          {maybeVotes.map(vote => (
-                            <div key={vote.id} className="text-yellow-600">
-                              {vote.participant_name}
+                    return (
+                      <tr key={email} className="hover:bg-gray-50">
+                        <td className="p-3 border-r border-b border-gray-200">
+                          <div className="flex items-center space-x-2">
+                            <div className="w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center text-sm">
+                              👤
                             </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                    
-                    {noVotes.length > 0 && (
-                      <div>
-                        <div className="font-medium text-red-700 mb-1">❌ Not Available:</div>
-                        <div className="space-y-1">
-                          {noVotes.map(vote => (
-                            <div key={vote.id} className="text-red-600">
-                              {vote.participant_name}
+                            <div className="min-w-0">
+                              <div className="font-medium truncate">{participant?.participant_name}</div>
                             </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                  
-                  {optionResponses.length === 0 && (
-                    <div className="text-gray-500 text-sm italic">No votes yet for this option</div>
-                  )}
-                </div>
-              )
-            })}
+                            <button className="text-blue-600 hover:text-blue-800 text-sm">✏️</button>
+                          </div>
+                        </td>
+                        {options.map((option) => {
+                          const response = responses.find(r => 
+                            r.participant_email === email && r.option_id === option.id
+                          )
+                          const bestOptions = getBestOptions()
+                          const isTopChoice = bestOptions.length > 0 && bestOptions[0]?.option_id === option.id
+                          
+                          return (
+                            <td key={option.id} className={`text-center p-2 border-r border-b border-gray-200 ${isTopChoice ? 'bg-red-50' : ''}`}>
+                              {response && (
+                                <div className={`w-8 h-8 rounded-full flex items-center justify-center mx-auto text-sm font-bold ${
+                                  response.response === 'yes' 
+                                    ? 'bg-green-500 text-white' 
+                                    : response.response === 'maybe'
+                                    ? 'bg-yellow-400 text-white'
+                                    : 'bg-gray-300 text-gray-600'
+                                }`}>
+                                  {response.response === 'yes' 
+                                    ? '✓' 
+                                    : response.response === 'maybe'
+                                    ? '?'
+                                    : '✗'
+                                  }
+                                </div>
+                              )}
+                            </td>
+                          )
+                        })}
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
       </div>

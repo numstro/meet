@@ -71,6 +71,11 @@ export default function PollPage() {
   const [proposerEmail, setProposerEmail] = useState('')
   const [isProposing, setIsProposing] = useState(false)
 
+  // Delete poll state
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [deleteEmail, setDeleteEmail] = useState('')
+  const [isDeleting, setIsDeleting] = useState(false)
+
   // Time bucket options
   const timeBuckets = [
     { value: 'morning', label: '🌅 Morning', description: '8 AM - 12 PM' },
@@ -204,15 +209,8 @@ export default function PollPage() {
     setError('')
 
     try {
-      // Delete existing responses for this participant
-      await supabase
-        .from('poll_responses')
-        .delete()
-        .eq('poll_id', pollId)
-        .eq('participant_email', participantEmail)
-
-      // Insert new responses
-      const responsesToInsert = Object.entries(userResponses).map(([optionId, response]) => ({
+      // Use upsert (insert or update) to handle existing responses
+      const responsesToUpsert = Object.entries(userResponses).map(([optionId, response]) => ({
         poll_id: pollId,
         option_id: optionId,
         participant_name: participantName,
@@ -220,12 +218,30 @@ export default function PollPage() {
         response
       }))
 
-      if (responsesToInsert.length > 0) {
-        const { error: insertError } = await supabase
+      if (responsesToUpsert.length > 0) {
+        const { error: upsertError } = await supabase
           .from('poll_responses')
-          .insert(responsesToInsert)
+          .upsert(responsesToUpsert, {
+            onConflict: 'poll_id,option_id,participant_email'
+          })
 
-        if (insertError) throw insertError
+        if (upsertError) throw upsertError
+      }
+
+      // Also delete any responses for options that are no longer selected
+      const selectedOptionIds = Object.keys(userResponses)
+      if (selectedOptionIds.length > 0) {
+        const { error: deleteError } = await supabase
+          .from('poll_responses')
+          .delete()
+          .eq('poll_id', pollId)
+          .eq('participant_email', participantEmail)
+          .not('option_id', 'in', `(${selectedOptionIds.join(',')})`)
+
+        if (deleteError) {
+          console.warn('Failed to delete old responses:', deleteError)
+          // Don't fail the whole operation for this
+        }
       }
 
       setHasVoted(true)
@@ -337,6 +353,31 @@ export default function PollPage() {
       .slice(0, 3)
   }
 
+  const deletePoll = async () => {
+    if (!poll || deleteEmail.toLowerCase() !== poll.creator_email.toLowerCase()) {
+      setError('Please enter the correct creator email address')
+      return
+    }
+
+    setIsDeleting(true)
+    setError('')
+
+    try {
+      const { error } = await supabase
+        .from('polls')
+        .delete()
+        .eq('id', pollId)
+
+      if (error) throw error
+
+      // Redirect to home page after successful deletion
+      window.location.href = '/'
+    } catch (err: any) {
+      setError(err.message || 'Failed to delete poll')
+      setIsDeleting(false)
+    }
+  }
+
   if (isLoading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -361,7 +402,15 @@ export default function PollPage() {
     <div className="max-w-4xl mx-auto px-4 py-6">
       {/* Poll Header */}
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">{poll.title}</h1>
+        <div className="flex justify-between items-start mb-2">
+          <h1 className="text-3xl font-bold text-gray-900">{poll.title}</h1>
+          <button
+            onClick={() => setShowDeleteConfirm(true)}
+            className="text-red-600 hover:text-red-800 text-sm font-medium px-3 py-1 rounded border border-red-200 hover:border-red-300 transition-colors"
+          >
+            🗑️ Delete Poll
+          </button>
+        </div>
         {poll.description && (
           <p className="text-gray-600 mb-4">{poll.description}</p>
         )}
@@ -749,6 +798,58 @@ export default function PollPage() {
                 </div>
               )
             })}
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md mx-4">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Delete Poll</h3>
+            <p className="text-gray-600 mb-4">
+              Are you sure you want to delete this poll? This action cannot be undone.
+            </p>
+            
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Enter creator email to confirm:
+              </label>
+              <input
+                type="email"
+                value={deleteEmail}
+                onChange={(e) => setDeleteEmail(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Creator email address"
+              />
+            </div>
+
+            {error && (
+              <div className="bg-red-50 border border-red-200 rounded p-3 mb-4">
+                <p className="text-red-600 text-sm">{error}</p>
+              </div>
+            )}
+            
+            <div className="flex space-x-3">
+              <button
+                onClick={() => {
+                  setShowDeleteConfirm(false)
+                  setDeleteEmail('')
+                  setError('')
+                }}
+                className="flex-1 px-4 py-2 text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 transition-colors"
+                disabled={isDeleting}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={deletePoll}
+                disabled={isDeleting || !deleteEmail.trim()}
+                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {isDeleting ? 'Deleting...' : 'Delete Poll'}
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -2,6 +2,8 @@
 CREATE TABLE IF NOT EXISTS rate_limits (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   ip_address TEXT NOT NULL,
+  creator_email TEXT, -- Optional: helps identify abuse patterns
+  creator_name TEXT,  -- Optional: for better monitoring
   created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
 );
 
@@ -12,6 +14,10 @@ ON rate_limits(ip_address, created_at);
 -- Create index for cleanup queries  
 CREATE INDEX IF NOT EXISTS idx_rate_limits_created_at 
 ON rate_limits(created_at);
+
+-- Create index for email correlation queries
+CREATE INDEX IF NOT EXISTS idx_rate_limits_email 
+ON rate_limits(creator_email);
 
 -- Add Row Level Security (RLS) - only allow service role access
 ALTER TABLE rate_limits ENABLE ROW LEVEL SECURITY;
@@ -37,3 +43,8 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 GRANT ALL ON rate_limits TO anon;
 GRANT ALL ON rate_limits TO authenticated;
 GRANT ALL ON rate_limits TO service_role;
+
+-- Migration: Add new columns if they don't exist (for existing tables)
+ALTER TABLE rate_limits 
+ADD COLUMN IF NOT EXISTS creator_email TEXT,
+ADD COLUMN IF NOT EXISTS creator_name TEXT;

@@ -175,7 +175,16 @@ export default function CreatePollPage() {
       // Record rate limit usage (only in production mode)
       if (!isDemoMode) {
         try {
-          await fetch('/api/rate-limit/record', { method: 'POST' })
+          await fetch('/api/rate-limit/record', { 
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              creatorEmail: pollData.creatorEmail,
+              creatorName: pollData.creatorName
+            })
+          })
         } catch (rateLimitError) {
           console.error('Failed to record rate limit:', rateLimitError)
           // Don't fail the poll creation if rate limit recording fails

@@ -67,7 +67,7 @@ export async function checkRateLimit(ipAddress: string): Promise<RateLimitResult
   }
 }
 
-export async function recordRateLimit(ipAddress: string): Promise<void> {
+export async function recordRateLimit(ipAddress: string, creatorEmail?: string, creatorName?: string): Promise<void> {
   // Don't record in demo mode
   if (isDemoMode) return
 
@@ -76,6 +76,8 @@ export async function recordRateLimit(ipAddress: string): Promise<void> {
       .from('rate_limits')
       .insert([{
         ip_address: ipAddress,
+        creator_email: creatorEmail || null,
+        creator_name: creatorName || null,
         created_at: new Date().toISOString()
       }])
 

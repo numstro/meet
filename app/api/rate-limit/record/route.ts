@@ -13,8 +13,12 @@ export async function POST(request: NextRequest) {
                      realIp || 
                      '127.0.0.1' // fallback for local development
 
-    // Record the rate limit
-    await recordRateLimit(ipAddress)
+    // Get optional email and name from request body
+    const body = await request.json().catch(() => ({}))
+    const { creatorEmail, creatorName } = body
+
+    // Record the rate limit with optional user info
+    await recordRateLimit(ipAddress, creatorEmail, creatorName)
 
     return NextResponse.json({ success: true })
   } catch (error) {

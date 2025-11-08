@@ -7,6 +7,8 @@ import { format, subDays, startOfDay, endOfDay } from 'date-fns'
 interface RateLimit {
   id: string
   ip_address: string
+  creator_email?: string
+  creator_name?: string
   created_at: string
 }
 
@@ -27,11 +29,21 @@ interface DailyStats {
   unique_ips: number
 }
 
+interface EmailIPCorrelation {
+  email: string
+  name: string
+  ip_addresses: string[]
+  poll_count: number
+  first_seen: string
+  last_seen: string
+}
+
 export default function MonitoringDashboard() {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [password, setPassword] = useState('')
   const [stats, setStats] = useState<DashboardStats | null>(null)
   const [dailyStats, setDailyStats] = useState<DailyStats[]>([])
+  const [emailIPCorrelations, setEmailIPCorrelations] = useState<EmailIPCorrelation[]>([])
   const [isLoading, setIsLoading] = useState(false)
 
   // Simple password protection (same as admin)
@@ -81,8 +93,14 @@ export default function MonitoringDashboard() {
       // Get rate limit statistics
       const { data: rateLimits } = await supabase
         .from('rate_limits')
-        .select('ip_address, created_at')
+        .select('ip_address, creator_email, creator_name, created_at')
         .gte('created_at', yesterday.toISOString())
+
+      // Get all rate limits for email-IP correlation analysis
+      const { data: allRateLimits } = await supabase
+        .from('rate_limits')
+        .select('ip_address, creator_email, creator_name, created_at')
+        .order('created_at', { ascending: true })
 
       // Calculate unique IPs in last 24h
       const uniqueIps = new Set(rateLimits?.map((rl: RateLimit) => rl.ip_address) || []).size
@@ -104,7 +122,50 @@ export default function MonitoringDashboard() {
         rateLimitHits
       }
 
+      // Process email-to-IP correlations
+      const emailIPCorrelationMap: Record<string, {
+        name: string
+        ip_addresses: Set<string>
+        poll_count: number
+        first_seen: string
+        last_seen: string
+      }> = {}
+
+      allRateLimits?.forEach((rl: RateLimit) => {
+        if (rl.creator_email) {
+          if (!emailIPCorrelationMap[rl.creator_email]) {
+            emailIPCorrelationMap[rl.creator_email] = {
+              name: rl.creator_name || 'Unknown',
+              ip_addresses: new Set(),
+              poll_count: 0,
+              first_seen: rl.created_at,
+              last_seen: rl.created_at
+            }
+          }
+          
+          const correlation = emailIPCorrelationMap[rl.creator_email]
+          correlation.ip_addresses.add(rl.ip_address)
+          correlation.poll_count++
+          correlation.last_seen = rl.created_at
+          if (rl.creator_name) {
+            correlation.name = rl.creator_name // Update to latest name
+          }
+        }
+      })
+
+      const emailIPCorrelations: EmailIPCorrelation[] = Object.entries(emailIPCorrelationMap)
+        .map(([email, data]) => ({
+          email,
+          name: data.name,
+          ip_addresses: Array.from(data.ip_addresses),
+          poll_count: data.poll_count,
+          first_seen: data.first_seen,
+          last_seen: data.last_seen
+        }))
+        .sort((a, b) => b.poll_count - a.poll_count) // Sort by poll count (highest first)
+
       setStats(dashboardStats)
+      setEmailIPCorrelations(emailIPCorrelations)
 
       // Get daily statistics for the last 7 days
       const dailyStatsPromises = Array.from({ length: 7 }, (_, i) => {
@@ -319,6 +380,113 @@ export default function MonitoringDashboard() {
                     </td>
                   </tr>
                 ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </div>
+
+      {/* Email-to-IP Correlation Analysis */}
+      <div className="bg-white rounded-lg shadow mt-8">
+        <div className="px-6 py-4 border-b border-gray-200">
+          <h2 className="text-lg font-semibold text-gray-900">Email-to-IP Correlation Analysis</h2>
+          <p className="text-sm text-gray-600 mt-1">Identify potential abuse patterns by correlating email addresses with IP addresses</p>
+        </div>
+        
+        <div className="overflow-x-auto">
+          {isLoading ? (
+            <div className="text-center py-12">
+              <div className="text-gray-600">Loading correlation data...</div>
+            </div>
+          ) : emailIPCorrelations.length === 0 ? (
+            <div className="text-center py-12">
+              <div className="text-gray-400 text-4xl mb-4">🔍</div>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">No correlation data yet</h3>
+              <p className="text-gray-600">Email-IP correlations will appear as users create polls</p>
+            </div>
+          ) : (
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Creator Details
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    IP Addresses Used
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Polls Created
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Activity Period
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Risk Level
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {emailIPCorrelations.map((correlation, index) => {
+                  // Determine risk level based on patterns
+                  const multipleIPs = correlation.ip_addresses.length > 1
+                  const highVolume = correlation.poll_count > 3
+                  const riskLevel = multipleIPs && highVolume ? 'HIGH' : 
+                                   multipleIPs || highVolume ? 'MEDIUM' : 'LOW'
+                  const riskColor = riskLevel === 'HIGH' ? 'text-red-600' :
+                                   riskLevel === 'MEDIUM' ? 'text-yellow-600' : 'text-green-600'
+                  
+                  return (
+                    <tr key={`${correlation.email}-${index}`} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div>
+                          <div className="text-sm font-medium text-gray-900">
+                            {correlation.name}
+                          </div>
+                          <div className="text-sm text-gray-500">
+                            {correlation.email}
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="space-y-1">
+                          {correlation.ip_addresses.map((ip, ipIndex) => (
+                            <div key={`${ip}-${ipIndex}`} className="text-sm text-gray-900 bg-gray-100 px-2 py-1 rounded text-center font-mono">
+                              {ip}
+                            </div>
+                          ))}
+                          {correlation.ip_addresses.length > 1 && (
+                            <div className="text-xs text-orange-600 font-medium">
+                              ⚠️ Multiple IPs
+                            </div>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        <div className="flex items-center">
+                          <span className="text-lg font-semibold">{correlation.poll_count}</span>
+                          {correlation.poll_count > 3 && (
+                            <span className="ml-2 text-xs text-orange-600">📈 High volume</span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <div>
+                          <div>First: {format(new Date(correlation.first_seen), 'MMM d, HH:mm')}</div>
+                          <div>Last: {format(new Date(correlation.last_seen), 'MMM d, HH:mm')}</div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                          riskLevel === 'HIGH' ? 'bg-red-100 text-red-800' :
+                          riskLevel === 'MEDIUM' ? 'bg-yellow-100 text-yellow-800' :
+                          'bg-green-100 text-green-800'
+                        }`}>
+                          {riskLevel}
+                        </span>
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           )}

@@ -13,21 +13,17 @@ export async function GET(request: NextRequest) {
                      realIp || 
                      '127.0.0.1' // fallback for local development
 
-    // Get email from query parameters
-    const { searchParams } = new URL(request.url)
-    const creatorEmail = searchParams.get('email')
-
     // Get user agent for violation tracking
     const userAgent = request.headers.get('user-agent') || 'Unknown'
 
-    // Check rate limit (with email for more accurate counting)
-    const rateLimitResult = await checkRateLimit(ipAddress, creatorEmail || undefined)
+    // Check rate limit
+    const rateLimitResult = await checkRateLimit(ipAddress)
 
     // If not allowed, record the violation (but don't block the API response)
     if (!rateLimitResult.allowed && rateLimitResult.reason) {
       try {
         // We don't have email/name at this stage, will get them when they try to create
-        await recordViolation(ipAddress, undefined, undefined, undefined, userAgent)
+        await recordViolation(ipAddress, undefined, undefined, 'rate_limit_exceeded', userAgent, 'create_poll')
       } catch (violationError) {
         console.error('Failed to record violation:', violationError)
         // Don't fail the request if violation recording fails

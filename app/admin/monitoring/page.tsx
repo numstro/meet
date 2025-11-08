@@ -4,6 +4,12 @@ import { useState, useEffect } from 'react'
 import { supabase, isDemoMode } from '@/lib/supabase'
 import { format, subDays, startOfDay, endOfDay } from 'date-fns'
 
+interface RateLimit {
+  id: string
+  ip_address: string
+  created_at: string
+}
+
 interface DashboardStats {
   totalPolls: number
   pollsLast24h: number
@@ -79,11 +85,11 @@ export default function MonitoringDashboard() {
         .gte('created_at', yesterday.toISOString())
 
       // Calculate unique IPs in last 24h
-      const uniqueIps = new Set(rateLimits?.map(rl => rl.ip_address) || []).size
+      const uniqueIps = new Set(rateLimits?.map((rl: RateLimit) => rl.ip_address) || []).size
 
       // Count rate limit hits (IPs that hit the rate limit)
       const ipCounts: Record<string, number> = {}
-      rateLimits?.forEach(rl => {
+      rateLimits?.forEach((rl: RateLimit) => {
         ipCounts[rl.ip_address] = (ipCounts[rl.ip_address] || 0) + 1
       })
       const rateLimitHits = Object.values(ipCounts).filter(count => count >= 5).length
@@ -126,7 +132,7 @@ export default function MonitoringDashboard() {
           date: format(date, 'yyyy-MM-dd'),
           polls_created: polls.data?.length || 0,
           responses_submitted: responses.data?.length || 0,
-          unique_ips: new Set(rateLimits.data?.map(rl => rl.ip_address) || []).size
+          unique_ips: new Set(rateLimits.data?.map((rl: RateLimit) => rl.ip_address) || []).size
         }))
       })
 

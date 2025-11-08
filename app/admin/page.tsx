@@ -113,7 +113,13 @@ export default function AdminDashboard() {
 
       // Update local state properly
       setPolls(prevPolls => prevPolls.filter(poll => poll.id !== pollId))
-      alert('Poll deleted successfully')
+      
+      // Force refresh polls data to ensure consistency
+      setTimeout(() => {
+        loadPolls()
+      }, 100)
+      
+      // No success alert - just silent success
     } catch (err) {
       console.error('Error deleting poll:', err)
       alert('Error deleting poll: ' + (err as Error).message)

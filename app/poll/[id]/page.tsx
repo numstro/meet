@@ -363,12 +363,29 @@ export default function PollPage() {
     setError('')
 
     try {
-      const { error } = await supabase
+      // Delete poll options first (due to foreign key constraints)
+      const { error: optionsError } = await supabase
+        .from('poll_options')
+        .delete()
+        .eq('poll_id', pollId)
+
+      if (optionsError) throw optionsError
+
+      // Delete poll responses
+      const { error: responsesError } = await supabase
+        .from('poll_responses')
+        .delete()
+        .eq('poll_id', pollId)
+
+      if (responsesError) throw responsesError
+
+      // Delete the poll
+      const { error: pollError } = await supabase
         .from('polls')
         .delete()
         .eq('id', pollId)
 
-      if (error) throw error
+      if (pollError) throw pollError
 
       // Redirect to home page after successful deletion
       window.location.href = '/'

@@ -34,7 +34,6 @@ export default function AdminDashboard() {
   const [bannedIPs, setBannedIPs] = useState<BannedIP[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [isDeleting, setIsDeleting] = useState<string | null>(null)
-  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
   
   // Ban form state
   const [showBanForm, setShowBanForm] = useState(false)
@@ -81,8 +80,8 @@ export default function AdminDashboard() {
   }
 
   const deletePoll = async (pollId: string) => {
-    if (deleteConfirm !== pollId) {
-      setDeleteConfirm(pollId)
+    // Single confirmation dialog
+    if (!confirm(`Are you sure you want to delete this poll? This action cannot be undone.`)) {
       return
     }
 
@@ -112,15 +111,14 @@ export default function AdminDashboard() {
 
       if (pollError) throw pollError
 
-      // Remove from local state
-      setPolls(polls.filter(poll => poll.id !== pollId))
+      // Update local state properly
+      setPolls(prevPolls => prevPolls.filter(poll => poll.id !== pollId))
       alert('Poll deleted successfully')
     } catch (err) {
       console.error('Error deleting poll:', err)
-      alert('Error deleting poll')
+      alert('Error deleting poll: ' + (err as Error).message)
     } finally {
       setIsDeleting(null)
-      setDeleteConfirm(null)
     }
   }
 
@@ -469,18 +467,9 @@ export default function AdminDashboard() {
                       <button
                         onClick={() => deletePoll(poll.id)}
                         disabled={isDeleting === poll.id}
-                        className={`${
-                          deleteConfirm === poll.id
-                            ? 'text-red-800 font-bold'
-                            : 'text-red-600 hover:text-red-900'
-                        } disabled:opacity-50`}
+                        className="text-red-600 hover:text-red-900 disabled:opacity-50"
                       >
-                        {isDeleting === poll.id 
-                          ? 'Deleting...' 
-                          : deleteConfirm === poll.id 
-                          ? 'Click again to confirm' 
-                          : 'Delete'
-                        }
+                        {isDeleting === poll.id ? 'Deleting...' : 'Delete'}
                       </button>
                     </td>
                   </tr>

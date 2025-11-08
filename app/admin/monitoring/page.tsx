@@ -238,6 +238,23 @@ export default function MonitoringDashboard() {
     }
   }
 
+  const handleBanIP = async (ipAddress: string) => {
+    try {
+      await banIP(
+        ipAddress,
+        'Banned from monitoring dashboard',
+        'Admin',
+        addDays(new Date(), 1) // Ban for 24 hours
+      )
+      
+      alert(`IP ${ipAddress} banned successfully for 24 hours`)
+      loadStats() // Refresh data
+    } catch (err) {
+      console.error('Error banning IP:', err)
+      alert('Error banning IP address')
+    }
+  }
+
   if (!isAuthenticated) {
     return (
       <div className="max-w-md mx-auto mt-20 px-4">

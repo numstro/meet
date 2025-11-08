@@ -81,7 +81,7 @@ export const demoPollResponses = [
 export const createDemoSupabase = () => ({
   from: (table: string) => ({
     select: (columns: string = '*') => {
-      let data = []
+      let data: any[] = []
       if (table === 'polls') {
         data = demoPolls
       } else if (table === 'poll_options') {

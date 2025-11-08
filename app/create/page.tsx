@@ -129,31 +129,7 @@ export default function CreatePollPage() {
         userIpAddress = rateLimitData.ipAddress || '127.0.0.1'
         
         if (!response.ok || !rateLimitData.allowed) {
-          // Record violation (but NOT in rate_limits table since no poll was created)
-          try {
-            console.log('🚨 RECORDING VIOLATION:', {
-              email: pollData.creatorEmail,
-              name: pollData.creatorName,
-              rateLimitData
-            })
-            
-            const violationResponse = await fetch('/api/record-violation', { 
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                creatorEmail: pollData.creatorEmail,
-                creatorName: pollData.creatorName,
-                violationType: 'rate_limit_exceeded',
-                attemptedAction: 'create_poll'
-              })
-            })
-            
-            const violationResult = await violationResponse.json()
-            console.log('🚨 VIOLATION RESPONSE:', violationResult)
-            
-          } catch (violationError) {
-            console.error('Failed to record detailed violation:', violationError)
-          }
+          // Violation logging happens automatically in rate limit check
           
           const resetDate = new Date(rateLimitData.resetTime).toLocaleString()
           const reason = rateLimitData.reason || 'Rate limit exceeded'

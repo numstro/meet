@@ -69,9 +69,15 @@ export async function checkRateLimit(ipAddress: string): Promise<RateLimitResult
       }
     }
 
-    const pollsCreated = data?.length || 0
-    const allowed = pollsCreated < RATE_LIMIT_MAX
-    const remaining = Math.max(0, RATE_LIMIT_MAX - pollsCreated)
+  const pollsCreated = data?.length || 0
+  const allowed = pollsCreated < RATE_LIMIT_MAX
+
+  // Simple violation logging for repeat offenders
+  if (!allowed) {
+    console.log(`🚨 RATE LIMIT VIOLATION: IP ${ipAddress} attempted poll creation (${pollsCreated}/${RATE_LIMIT_MAX} polls in 24h)`)
+  }
+
+  const remaining = Math.max(0, RATE_LIMIT_MAX - pollsCreated)
 
     // Calculate reset time (24 hours from the first request in current window)
     const firstRequestTime = data && data.length > 0 

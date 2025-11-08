@@ -525,91 +525,21 @@ export default function MonitoringDashboard() {
       <div className="bg-white rounded-lg shadow mt-8">
         <div className="px-6 py-4 border-b border-gray-200">
           <h2 className="text-lg font-semibold text-gray-900">Rate Limit Violations</h2>
-          <p className="text-sm text-gray-600 mt-1">Track attempts to exceed rate limits and identify potential abuse</p>
+          <p className="text-sm text-gray-600 mt-1">Simple console logging for repeat offenders</p>
         </div>
         
-        <div className="overflow-x-auto">
-          {isLoading ? (
-            <div className="text-center py-12">
-              <div className="text-gray-600">Loading violations...</div>
+        <div className="px-6 py-8">
+          <div className="text-center">
+            <div className="text-blue-400 text-4xl mb-4">📝</div>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">Console Logging Active</h3>
+            <div className="text-gray-600 text-sm space-y-2">
+              <p>Rate limit violations are logged to server console for admin review.</p>
+              <p className="font-mono text-xs bg-gray-50 p-2 rounded">
+                🚨 RATE LIMIT VIOLATION: IP 192.168.1.1 attempted poll creation (6/5 polls in 24h)
+              </p>
+              <p className="text-xs">Check server logs or Vercel function logs for violation records.</p>
             </div>
-          ) : violations.length === 0 ? (
-            <div className="text-center py-12">
-              <div className="text-green-400 text-4xl mb-4">✅</div>
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No violations detected</h3>
-              <p className="text-gray-600">All users are respecting the rate limits</p>
-            </div>
-          ) : (
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Time
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    IP Address
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    User Details
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Violation Details
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    User Agent
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {violations.map((violation, index) => (
-                  <tr key={`${violation.id}-${index}`} className="hover:bg-red-50">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {format(new Date(violation.created_at), 'MMM d, HH:mm:ss')}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 font-mono">
-                      {violation.ip_address}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      {violation.creator_email ? (
-                        <div>
-                          <div className="text-sm font-medium text-gray-900">
-                            {violation.creator_name || 'Unknown'}
-                          </div>
-                          <div className="text-sm text-gray-500">
-                            {violation.creator_email}
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="text-sm text-gray-500 italic">
-                          No user details
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-6 py-4">
-                      <div>
-                        <div className="text-sm font-medium text-red-600">
-                          {violation.violation_type.replace('_', ' ').toUpperCase()}
-                        </div>
-                        <div className="text-sm text-gray-500">
-                          Action: {violation.attempted_action}
-                        </div>
-                        {violation.current_count && (
-                          <div className="text-sm text-gray-500">
-                            Had {violation.current_count}/{violation.limit_exceeded} polls
-                          </div>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-500">
-                      <div className="max-w-xs truncate" title={violation.user_agent || 'Unknown'}>
-                        {violation.user_agent || 'Unknown'}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
+          </div>
         </div>
       </div>
 

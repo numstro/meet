@@ -10,12 +10,21 @@ export async function GET() {
       })
     }
 
-    // Get all rate limits data (same query as monitoring dashboard)
-    const { data: allRateLimits, error } = await supabase
+    // Try different queries to see what works
+    
+    // Query 1: Simple select all
+    const { data: allData, error: allError } = await supabase
       .from('rate_limits')
       .select('*')
+    
+    // Query 2: Just with email filter  
+    const { data: emailData, error: emailError } = await supabase
+      .from('rate_limits') 
+      .select('*')
       .not('creator_email', 'is', null)
-      .order('created_at', { ascending: false })
+      
+    const allRateLimits = emailData
+    const error = emailError
 
     if (error) {
       return NextResponse.json({ 
@@ -55,6 +64,10 @@ export async function GET() {
 
     return NextResponse.json({
       rawRecords: allRateLimits?.length || 0,
+      allDataCount: allData?.length || 0,
+      allDataError: allError?.message || null,
+      emailDataError: emailError?.message || null,
+      sampleRecord: allData?.[0] || null,
       emailGroups: Object.keys(emailGroups),
       correlations,
       success: true

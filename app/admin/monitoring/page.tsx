@@ -166,7 +166,7 @@ export default function MonitoringDashboard() {
         
         // Convert to correlation format
         Object.entries(emailGroups).forEach(([email, records]) => {
-          const ips = [...new Set(records.map(r => r.ip_address))]
+          const ips = Array.from(new Set(records.map(r => r.ip_address)))
           const names = records.map(r => r.creator_name).filter(n => n)
           const latestName = names[names.length - 1] || 'Unknown'
           

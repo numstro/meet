@@ -78,9 +78,25 @@ export async function checkRateLimit(ipAddress: string): Promise<RateLimitResult
 
   console.log(`🔍 RATE LIMIT DECISION: ${pollsCreated}/${RATE_LIMIT_MAX} polls, allowed=${allowed}`)
 
-  // Simple violation logging for repeat offenders
+  // Record violation to database for repeat offender tracking
   if (!allowed) {
     console.log(`🚨 RATE LIMIT VIOLATION: IP ${ipAddress} attempted poll creation (${pollsCreated}/${RATE_LIMIT_MAX} polls in 24h)`)
+    
+    // Record to database
+    try {
+      await supabase
+        .from('rate_limit_violations')
+        .insert({
+          ip_address: ipAddress,
+          violation_type: 'rate_limit_exceeded',
+          attempted_action: 'create_poll',
+          current_count: pollsCreated,
+          limit_exceeded: RATE_LIMIT_MAX,
+          created_at: new Date().toISOString()
+        })
+    } catch (err) {
+      console.error('Failed to record violation:', err)
+    }
   }
 
   const remaining = Math.max(0, RATE_LIMIT_MAX - pollsCreated)

@@ -39,10 +39,21 @@ export default function CreatePollPage() {
   ] as const
 
   const addTimeOption = () => {
+    // Find the next available date that isn't already selected
+    const existingDates = new Set(timeOptions.map(option => option.date))
+    let nextDate = addDays(new Date(), 1)
+    let dateString = format(nextDate, 'yyyy-MM-dd')
+    
+    // Keep incrementing until we find a date that's not already selected
+    while (existingDates.has(dateString)) {
+      nextDate = addDays(nextDate, 1)
+      dateString = format(nextDate, 'yyyy-MM-dd')
+    }
+    
     setTimeOptions([
       ...timeOptions,
       {
-        date: format(addDays(new Date(), 1), 'yyyy-MM-dd'),
+        date: dateString,
         timeBuckets: ['morning']
       }
     ])

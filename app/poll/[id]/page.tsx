@@ -389,7 +389,7 @@ export default function PollPage() {
             
             {/* Detailed breakdown for each option */}
             {options.map((option) => {
-              const { date, time } = formatDateTime(option.option_date, option.option_text)
+              const { date, time } = formatDateTime(option.option_date, option.option_text || undefined)
               const optionResponses = responses.filter(r => r.option_id === option.id)
               const yesVotes = optionResponses.filter(r => r.response === 'yes')
               const maybeVotes = optionResponses.filter(r => r.response === 'maybe')
@@ -546,7 +546,7 @@ export default function PollPage() {
               <h3 className="text-lg font-medium mb-4">Select your availability for each option:</h3>
               <div className="space-y-3">
                 {options.map((option) => {
-                  const { date, time } = formatDateTime(option.option_date, option.option_text)
+                  const { date, time } = formatDateTime(option.option_date, option.option_text || undefined)
                   const currentResponse = userResponses[option.id]
                   
                   return (

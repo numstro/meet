@@ -8,7 +8,6 @@ export default function FindPolls() {
   const [isLoading, setIsLoading] = useState(false)
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
-  const [magicUrl, setMagicUrl] = useState('')
   const router = useRouter()
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -35,9 +34,6 @@ export default function FindPolls() {
       if (response.ok) {
         setMessage('✅ Magic link sent! Check your email to access your polls.')
         setEmail('')
-        
-        // Also get the magic link to show directly
-        getMagicLink()
       } else {
         setError(data.error || 'Failed to send magic link')
       }
@@ -45,26 +41,6 @@ export default function FindPolls() {
       setError('Network error. Please try again.')
     } finally {
       setIsLoading(false)
-    }
-  }
-
-  const getMagicLink = async () => {
-    if (!email) return
-    
-    try {
-      const response = await fetch('/api/get-magic-link', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: email.toLowerCase() })
-      })
-
-      const data = await response.json()
-      
-      if (response.ok) {
-        setMagicUrl(data.magicUrl)
-      }
-    } catch (err) {
-      // Silent fail - email might still work
     }
   }
 
@@ -103,17 +79,9 @@ export default function FindPolls() {
           {message && (
             <div className="p-3 bg-green-50 border border-green-200 rounded-md">
               <p className="text-green-600 text-sm">{message}</p>
-              {magicUrl && (
-                <div className="mt-3 p-2 bg-blue-50 border border-blue-200 rounded">
-                  <p className="text-blue-800 text-xs mb-2">Or click this direct link:</p>
-                  <a 
-                    href={magicUrl}
-                    className="text-blue-600 hover:text-blue-800 text-sm break-all underline"
-                  >
-                    Access Your Polls →
-                  </a>
-                </div>
-              )}
+              <p className="text-green-600 text-xs mt-1">
+                If you don't receive an email, check your spam folder or contact support.
+              </p>
             </div>
           )}
 

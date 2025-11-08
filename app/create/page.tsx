@@ -133,7 +133,10 @@ export default function CreatePollPage() {
         }
       } catch (rateLimitError) {
         console.error('Rate limit check failed:', rateLimitError)
-        // Continue anyway if rate limit check fails
+        // SECURITY: Do not allow poll creation if rate limit check fails
+        setError('Rate limit check failed. Please try again in a moment.')
+        setIsSubmitting(false)
+        return
       }
     }
 

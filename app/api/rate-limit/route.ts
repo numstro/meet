@@ -13,11 +13,15 @@ export async function GET(request: NextRequest) {
                      realIp || 
                      '127.0.0.1' // fallback for local development
 
+    // Get email from query parameters
+    const { searchParams } = new URL(request.url)
+    const creatorEmail = searchParams.get('email')
+
     // Get user agent for violation tracking
     const userAgent = request.headers.get('user-agent') || 'Unknown'
 
-    // Check rate limit
-    const rateLimitResult = await checkRateLimit(ipAddress)
+    // Check rate limit (with email for more accurate counting)
+    const rateLimitResult = await checkRateLimit(ipAddress, creatorEmail || undefined)
 
     // If not allowed, record the violation (but don't block the API response)
     if (!rateLimitResult.allowed && rateLimitResult.reason) {

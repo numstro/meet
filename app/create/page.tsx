@@ -118,22 +118,27 @@ export default function CreatePollPage() {
       return
     }
 
-    // Check rate limit (skip in demo mode)
+    // Check rate limit and get IP address (skip in demo mode)
+    let userIpAddress = '127.0.0.1' // fallback
     if (!isDemoMode) {
       try {
         const response = await fetch('/api/rate-limit')
         const rateLimitData = await response.json()
         
+        // Store IP address for poll creation
+        userIpAddress = rateLimitData.ipAddress || '127.0.0.1'
+        
         if (!response.ok || !rateLimitData.allowed) {
-          // Record violation with user details when blocked
+          // Record violation (but NOT in rate_limits table since no poll was created)
           try {
-            await fetch('/api/rate-limit/record', { 
+            await fetch('/api/record-violation', { 
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
                 creatorEmail: pollData.creatorEmail,
                 creatorName: pollData.creatorName,
-                violationType: 'rate_limit_exceeded'
+                violationType: 'rate_limit_exceeded',
+                attemptedAction: 'create_poll'
               })
             })
           } catch (violationError) {
@@ -164,6 +169,7 @@ export default function CreatePollPage() {
           description: pollData.description,
           creator_name: pollData.creatorName,
           creator_email: pollData.creatorEmail,
+          creator_ip: userIpAddress,
           location: pollData.location || null,
           deadline: pollData.deadline || null
         })
@@ -191,24 +197,7 @@ export default function CreatePollPage() {
 
       if (optionsError) throw optionsError
 
-      // Record rate limit usage (only in production mode)
-      if (!isDemoMode) {
-        try {
-          await fetch('/api/rate-limit/record', { 
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              creatorEmail: pollData.creatorEmail,
-              creatorName: pollData.creatorName
-            })
-          })
-        } catch (rateLimitError) {
-          console.error('Failed to record rate limit:', rateLimitError)
-          // Don't fail the poll creation if rate limit recording fails
-        }
-      }
+      // No need to record rate limits separately - polls table is now the source of truth!
 
       // Redirect to the poll page
       if (isDemoMode) {

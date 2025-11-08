@@ -51,13 +51,13 @@ export async function checkRateLimit(ipAddress: string): Promise<RateLimitResult
     const now = new Date()
     const windowStart = new Date(now.getTime() - RATE_LIMIT_WINDOW)
 
-    // Count polls created by this IP in the last 24 hours
-    const { data, error } = await supabase
-      .from('rate_limits')
-      .select('*')
-      .eq('ip_address', ipAddress)
-      .gte('created_at', windowStart.toISOString())
-      .order('created_at', { ascending: false })
+  // Count actual polls created by this IP in the last 24 hours
+  const { data, error } = await supabase
+    .from('polls')
+    .select('*')
+    .eq('creator_ip', ipAddress)
+    .gte('created_at', windowStart.toISOString())
+    .order('created_at', { ascending: false })
 
     if (error) {
       console.error('Rate limit check error:', error)
@@ -123,8 +123,10 @@ export async function recordViolation(
   ipAddress: string, 
   creatorEmail?: string, 
   creatorName?: string,
-  currentCount?: number,
-  userAgent?: string
+  violationType?: string,
+  userAgent?: string,
+  attemptedAction?: string,
+  currentCount?: number
 ): Promise<void> {
   if (isDemoMode) return
 
@@ -135,8 +137,8 @@ export async function recordViolation(
         ip_address: ipAddress,
         creator_email: creatorEmail || null,
         creator_name: creatorName || null,
-        violation_type: 'rate_limit_exceeded',
-        attempted_action: 'create_poll',
+        violation_type: violationType || 'rate_limit_exceeded',
+        attempted_action: attemptedAction || 'create_poll',
         current_count: currentCount || null,
         limit_exceeded: RATE_LIMIT_MAX,
         user_agent: userAgent || null,

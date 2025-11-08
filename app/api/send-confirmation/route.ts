@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { Resend } from 'resend'
 
-const resend = new Resend(process.env.RESEND_API_KEY)
-
 export async function POST(request: NextRequest) {
   try {
     const { to, name, date, time } = await request.json()
@@ -11,6 +9,8 @@ export async function POST(request: NextRequest) {
       console.log('Resend API key not configured, skipping email')
       return NextResponse.json({ success: true, message: 'Email skipped - no API key' })
     }
+
+    const resend = new Resend(process.env.RESEND_API_KEY)
 
     const dateObj = new Date(`${date}T${time}`)
     const formattedDateTime = dateObj.toLocaleString('en-US', {

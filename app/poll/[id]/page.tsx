@@ -169,7 +169,7 @@ export default function PollPage() {
 
         // Load their existing responses
         const responseMap: Record<string, 'yes' | 'no' | 'maybe'> = {}
-        existingResponses.forEach(response => {
+        existingResponses.forEach((response: PollResponse) => {
           responseMap[response.option_id] = response.response as 'yes' | 'no' | 'maybe'
         })
         setUserResponses(responseMap)

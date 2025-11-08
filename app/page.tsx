@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { supabase } from '@/lib/supabase'
+import { supabase, isDemoMode } from '@/lib/supabase'
 import { format } from 'date-fns'
 
 interface Poll {
@@ -53,6 +53,22 @@ export default function HomePage() {
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-6">
+      {/* Demo Mode Banner */}
+      {isDemoMode && (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
+          <div className="flex items-center">
+            <div className="text-yellow-600 text-xl mr-3">⚠️</div>
+            <div>
+              <h3 className="text-yellow-800 font-semibold">Demo Mode Active</h3>
+              <p className="text-yellow-700 text-sm">
+                This is a demonstration with sample data. Polls created here won't be saved permanently. 
+                To use this app with real data, configure a Supabase database in your deployment.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Hero Section */}
       <div className="text-center mb-12">
         <h1 className="text-4xl font-bold text-gray-900 mb-4">
@@ -62,7 +78,7 @@ export default function HomePage() {
           Create polls to find the perfect time for everyone
         </p>
         <Link
-          href="/create-demo"
+          href="/create"
           className="inline-flex items-center px-6 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors"
         >
           ➕ Create New Poll
@@ -104,7 +120,7 @@ export default function HomePage() {
             <h3 className="text-lg font-medium text-gray-900 mb-2">No polls yet</h3>
             <p className="text-gray-600 mb-4">Create your first poll to get started!</p>
             <Link
-              href="/create-demo"
+              href="/create"
               className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
             >
               Create Poll

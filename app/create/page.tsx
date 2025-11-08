@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
+import { supabase, isDemoMode } from '@/lib/supabase'
 import { format, addDays } from 'date-fns'
 
 interface TimeOption {
@@ -149,6 +149,22 @@ export default function CreatePollPage() {
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-6">
+      {/* Demo Mode Banner */}
+      {isDemoMode && (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
+          <div className="flex items-center">
+            <div className="text-yellow-600 text-xl mr-3">⚠️</div>
+            <div>
+              <h3 className="text-yellow-800 font-semibold">Demo Mode Active</h3>
+              <p className="text-yellow-700 text-sm">
+                This poll will only be saved temporarily for demonstration. 
+                Configure a Supabase database to save polls permanently.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-900 mb-2">
           Create New Poll

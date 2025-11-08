@@ -4,10 +4,13 @@ import { createDemoSupabase } from './demo-data'
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
-// Use demo data if environment variables aren't set
+// Use real Supabase if environment variables are set, otherwise use demo mode
 export const supabase = (supabaseUrl && supabaseAnonKey && supabaseUrl !== 'https://demo.supabase.co') 
   ? createClient(supabaseUrl, supabaseAnonKey)
   : createDemoSupabase() as any
+
+// Flag to indicate if we're in demo mode
+export const isDemoMode = !supabaseUrl || !supabaseAnonKey || supabaseUrl === 'https://demo.supabase.co'
 
 export type Database = {
   public: {

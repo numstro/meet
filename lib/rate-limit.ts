@@ -4,6 +4,7 @@ export interface RateLimitResult {
   allowed: boolean
   remaining: number
   resetTime: Date
+  reason?: string // Why it was blocked (banned, rate limited, etc.)
 }
 
 const RATE_LIMIT_MAX = 5 // Maximum polls per day
@@ -20,6 +21,33 @@ export async function checkRateLimit(ipAddress: string): Promise<RateLimitResult
   }
 
   try {
+    // First, check if IP is banned
+    const { data: banData } = await supabase
+      .from('banned_ips')
+      .select('*')
+      .eq('ip_address', ipAddress)
+      .eq('is_active', true)
+      .single()
+
+    if (banData) {
+      // Check if ban is expired
+      if (banData.expires_at && new Date(banData.expires_at) <= new Date()) {
+        // Ban expired, deactivate it
+        await supabase
+          .from('banned_ips')
+          .update({ is_active: false })
+          .eq('id', banData.id)
+      } else {
+        // IP is banned
+        return {
+          allowed: false,
+          remaining: 0,
+          resetTime: banData.expires_at ? new Date(banData.expires_at) : new Date(Date.now() + RATE_LIMIT_WINDOW * 365), // 1 year for permanent
+          reason: `IP banned: ${banData.reason || 'No reason provided'}`
+        }
+      }
+    }
+
     const now = new Date()
     const windowStart = new Date(now.getTime() - RATE_LIMIT_WINDOW)
 
@@ -54,7 +82,8 @@ export async function checkRateLimit(ipAddress: string): Promise<RateLimitResult
     return {
       allowed,
       remaining: allowed ? remaining - 1 : remaining, // Subtract 1 if this request will be allowed
-      resetTime
+      resetTime,
+      reason: allowed ? undefined : `Rate limit exceeded (${pollsCreated}/${RATE_LIMIT_MAX} polls in 24h)`
     }
   } catch (err) {
     console.error('Rate limit check failed:', err)
@@ -86,6 +115,114 @@ export async function recordRateLimit(ipAddress: string, creatorEmail?: string, 
     }
   } catch (err) {
     console.error('Rate limit recording failed:', err)
+  }
+}
+
+// Record a rate limit violation
+export async function recordViolation(
+  ipAddress: string, 
+  creatorEmail?: string, 
+  creatorName?: string,
+  currentCount?: number,
+  userAgent?: string
+): Promise<void> {
+  if (isDemoMode) return
+
+  try {
+    const { error } = await supabase
+      .from('rate_limit_violations')
+      .insert([{
+        ip_address: ipAddress,
+        creator_email: creatorEmail || null,
+        creator_name: creatorName || null,
+        violation_type: 'rate_limit_exceeded',
+        attempted_action: 'create_poll',
+        current_count: currentCount || null,
+        limit_exceeded: RATE_LIMIT_MAX,
+        user_agent: userAgent || null,
+        created_at: new Date().toISOString()
+      }])
+
+    if (error) {
+      console.error('Failed to record violation:', error)
+    }
+  } catch (err) {
+    console.error('Violation recording failed:', err)
+  }
+}
+
+// Ban an IP address
+export async function banIP(
+  ipAddress: string, 
+  reason: string, 
+  bannedBy: string, 
+  expiresAt?: Date
+): Promise<void> {
+  if (isDemoMode) return
+
+  try {
+    const { error } = await supabase
+      .from('banned_ips')
+      .insert([{
+        ip_address: ipAddress,
+        reason: reason,
+        banned_by: bannedBy,
+        expires_at: expiresAt?.toISOString() || null,
+        is_active: true,
+        created_at: new Date().toISOString()
+      }])
+
+    if (error) {
+      console.error('Failed to ban IP:', error)
+      throw new Error('Failed to ban IP address')
+    }
+  } catch (err) {
+    console.error('IP banning failed:', err)
+    throw err
+  }
+}
+
+// Unban an IP address
+export async function unbanIP(ipAddress: string): Promise<void> {
+  if (isDemoMode) return
+
+  try {
+    const { error } = await supabase
+      .from('banned_ips')
+      .update({ is_active: false })
+      .eq('ip_address', ipAddress)
+      .eq('is_active', true)
+
+    if (error) {
+      console.error('Failed to unban IP:', error)
+      throw new Error('Failed to unban IP address')
+    }
+  } catch (err) {
+    console.error('IP unbanning failed:', err)
+    throw err
+  }
+}
+
+// Get all banned IPs
+export async function getBannedIPs(): Promise<any[]> {
+  if (isDemoMode) return []
+
+  try {
+    const { data, error } = await supabase
+      .from('banned_ips')
+      .select('*')
+      .eq('is_active', true)
+      .order('created_at', { ascending: false })
+
+    if (error) {
+      console.error('Failed to get banned IPs:', error)
+      return []
+    }
+
+    return data || []
+  } catch (err) {
+    console.error('Getting banned IPs failed:', err)
+    return []
   }
 }
 

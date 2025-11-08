@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { supabase, isDemoMode } from '@/lib/supabase'
 import { format, subDays, startOfDay, endOfDay } from 'date-fns'
+import Link from 'next/link'
 
 interface RateLimit {
   id: string
@@ -38,12 +39,26 @@ interface EmailIPCorrelation {
   last_seen: string
 }
 
+interface RateLimitViolation {
+  id: string
+  ip_address: string
+  creator_email?: string
+  creator_name?: string
+  violation_type: string
+  attempted_action: string
+  current_count?: number
+  limit_exceeded: number
+  user_agent?: string
+  created_at: string
+}
+
 export default function MonitoringDashboard() {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [password, setPassword] = useState('')
   const [stats, setStats] = useState<DashboardStats | null>(null)
   const [dailyStats, setDailyStats] = useState<DailyStats[]>([])
   const [emailIPCorrelations, setEmailIPCorrelations] = useState<EmailIPCorrelation[]>([])
+  const [violations, setViolations] = useState<RateLimitViolation[]>([])
   const [isLoading, setIsLoading] = useState(false)
 
   // Simple password protection (same as admin)
@@ -101,6 +116,15 @@ export default function MonitoringDashboard() {
         .from('rate_limits')
         .select('ip_address, creator_email, creator_name, created_at')
         .order('created_at', { ascending: true })
+
+      // Get rate limit violations
+      const { data: violationsData } = await supabase
+        .from('rate_limit_violations')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(50) // Latest 50 violations
+
+      setViolations(violationsData || [])
 
       // Calculate unique IPs in last 24h
       const uniqueIps = new Set(rateLimits?.map((rl: RateLimit) => rl.ip_address) || []).size
@@ -246,13 +270,21 @@ export default function MonitoringDashboard() {
           <h1 className="text-3xl font-bold text-gray-900">📊 Usage Monitoring</h1>
           <p className="text-gray-600 mt-2">Monitor app usage and performance metrics</p>
         </div>
-        <button
-          onClick={loadStats}
-          disabled={isLoading}
-          className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50"
-        >
-          {isLoading ? 'Refreshing...' : 'Refresh'}
-        </button>
+        <div className="flex items-center space-x-4">
+          <Link
+            href="/admin"
+            className="bg-gray-600 text-white px-4 py-2 rounded-md hover:bg-gray-700 transition-colors"
+          >
+            🏠 Admin Dashboard
+          </Link>
+          <button
+            onClick={loadStats}
+            disabled={isLoading}
+            className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50"
+          >
+            {isLoading ? 'Refreshing...' : 'Refresh'}
+          </button>
+        </div>
       </div>
 
       {isDemoMode && (
@@ -487,6 +519,98 @@ export default function MonitoringDashboard() {
                     </tr>
                   )
                 })}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </div>
+
+      {/* Rate Limit Violations */}
+      <div className="bg-white rounded-lg shadow mt-8">
+        <div className="px-6 py-4 border-b border-gray-200">
+          <h2 className="text-lg font-semibold text-gray-900">Rate Limit Violations</h2>
+          <p className="text-sm text-gray-600 mt-1">Track attempts to exceed rate limits and identify potential abuse</p>
+        </div>
+        
+        <div className="overflow-x-auto">
+          {isLoading ? (
+            <div className="text-center py-12">
+              <div className="text-gray-600">Loading violations...</div>
+            </div>
+          ) : violations.length === 0 ? (
+            <div className="text-center py-12">
+              <div className="text-green-400 text-4xl mb-4">✅</div>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">No violations detected</h3>
+              <p className="text-gray-600">All users are respecting the rate limits</p>
+            </div>
+          ) : (
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Time
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    IP Address
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    User Details
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Violation Details
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    User Agent
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {violations.map((violation, index) => (
+                  <tr key={`${violation.id}-${index}`} className="hover:bg-red-50">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {format(new Date(violation.created_at), 'MMM d, HH:mm:ss')}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 font-mono">
+                      {violation.ip_address}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      {violation.creator_email ? (
+                        <div>
+                          <div className="text-sm font-medium text-gray-900">
+                            {violation.creator_name || 'Unknown'}
+                          </div>
+                          <div className="text-sm text-gray-500">
+                            {violation.creator_email}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="text-sm text-gray-500 italic">
+                          No user details
+                        </div>
+                      )}
+                    </td>
+                    <td className="px-6 py-4">
+                      <div>
+                        <div className="text-sm font-medium text-red-600">
+                          {violation.violation_type.replace('_', ' ').toUpperCase()}
+                        </div>
+                        <div className="text-sm text-gray-500">
+                          Action: {violation.attempted_action}
+                        </div>
+                        {violation.current_count && (
+                          <div className="text-sm text-gray-500">
+                            Had {violation.current_count}/{violation.limit_exceeded} polls
+                          </div>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-500">
+                      <div className="max-w-xs truncate" title={violation.user_agent || 'Unknown'}>
+                        {violation.user_agent || 'Unknown'}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           )}

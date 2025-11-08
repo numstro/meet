@@ -126,7 +126,8 @@ export default function CreatePollPage() {
         
         if (!response.ok || !rateLimitData.allowed) {
           const resetDate = new Date(rateLimitData.resetTime).toLocaleString()
-          setError(`Rate limit exceeded. You can create ${rateLimitData.remaining || 0} more polls. Rate limit resets at ${resetDate}`)
+          const reason = rateLimitData.reason || 'Rate limit exceeded'
+          setError(`${reason}. Rate limit resets at ${resetDate}`)
           setIsSubmitting(false)
           return
         }

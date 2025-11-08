@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { checkRateLimit } from '@/lib/rate-limit'
+import { checkRateLimit, recordViolation } from '@/lib/rate-limit'
 
 // Force this route to be dynamic since we access headers
 export const dynamic = 'force-dynamic'
@@ -13,13 +13,28 @@ export async function GET(request: NextRequest) {
                      realIp || 
                      '127.0.0.1' // fallback for local development
 
+    // Get user agent for violation tracking
+    const userAgent = request.headers.get('user-agent') || 'Unknown'
+
     // Check rate limit
     const rateLimitResult = await checkRateLimit(ipAddress)
+
+    // If not allowed, record the violation (but don't block the API response)
+    if (!rateLimitResult.allowed && rateLimitResult.reason) {
+      try {
+        // We don't have email/name at this stage, will get them when they try to create
+        await recordViolation(ipAddress, undefined, undefined, undefined, userAgent)
+      } catch (violationError) {
+        console.error('Failed to record violation:', violationError)
+        // Don't fail the request if violation recording fails
+      }
+    }
 
     return NextResponse.json({
       allowed: rateLimitResult.allowed,
       remaining: rateLimitResult.remaining,
       resetTime: rateLimitResult.resetTime.toISOString(),
+      reason: rateLimitResult.reason,
       ipAddress: ipAddress // For debugging (remove in production)
     })
   } catch (error) {

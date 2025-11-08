@@ -91,12 +91,49 @@ export default function CreatePollPage() {
     setIsSubmitting(true)
     setError('')
 
+    // Basic validation - max 200 chars for title, 500 for description
+    if (pollData.title.length > 200) {
+      setError('Poll title must be 200 characters or less')
+      setIsSubmitting(false)
+      return
+    }
+
+    if (pollData.description.length > 500) {
+      setError('Poll description must be 500 characters or less')
+      setIsSubmitting(false)
+      return
+    }
+
+    if (pollData.creatorName.length > 100) {
+      setError('Creator name must be 100 characters or less')
+      setIsSubmitting(false)
+      return
+    }
+
     // Validate that each date has at least one time bucket selected
     const hasEmptyBuckets = timeOptions.some(option => option.timeBuckets.length === 0)
     if (hasEmptyBuckets) {
       setError('Please select at least one time of day for each date')
       setIsSubmitting(false)
       return
+    }
+
+    // Check rate limit (skip in demo mode)
+    if (!isDemoMode) {
+      try {
+        const response = await fetch('/api/rate-limit')
+        const rateLimitData = await response.json()
+        
+        if (!response.ok || !rateLimitData.allowed) {
+          const resetDate = new Date(rateLimitData.resetTime).toLocaleString()
+          setError(`Rate limit exceeded. You can create ${rateLimitData.remaining || 0} more polls. Rate limit resets at ${resetDate}`)
+          setIsSubmitting(false)
+          return
+        }
+      } catch (rateLimitError) {
+        console.error('Rate limit check failed:', rateLimitError)
+        // Continue anyway if rate limit check fails
+      }
     }
 
     try {
@@ -134,6 +171,16 @@ export default function CreatePollPage() {
         .insert(optionsToInsert)
 
       if (optionsError) throw optionsError
+
+      // Record rate limit usage (only in production mode)
+      if (!isDemoMode) {
+        try {
+          await fetch('/api/rate-limit/record', { method: 'POST' })
+        } catch (rateLimitError) {
+          console.error('Failed to record rate limit:', rateLimitError)
+          // Don't fail the poll creation if rate limit recording fails
+        }
+      }
 
       // Redirect to the poll page
       if (isDemoMode) {
@@ -210,11 +257,13 @@ export default function CreatePollPage() {
                 type="text"
                 id="title"
                 required
+                maxLength={200}
                 value={pollData.title}
                 onChange={(e) => setPollData({ ...pollData, title: e.target.value })}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="e.g., Team Coffee Meeting"
               />
+              <div className="text-xs text-gray-500 mt-1">{pollData.title.length}/200 characters</div>
             </div>
 
             <div>
@@ -224,11 +273,13 @@ export default function CreatePollPage() {
               <textarea
                 id="description"
                 rows={3}
+                maxLength={500}
                 value={pollData.description}
                 onChange={(e) => setPollData({ ...pollData, description: e.target.value })}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="Optional description or agenda"
               />
+              <div className="text-xs text-gray-500 mt-1">{pollData.description.length}/500 characters</div>
             </div>
 
             <div className="grid md:grid-cols-2 gap-4">
@@ -240,11 +291,13 @@ export default function CreatePollPage() {
                   type="text"
                   id="creatorName"
                   required
+                  maxLength={100}
                   value={pollData.creatorName}
                   onChange={(e) => setPollData({ ...pollData, creatorName: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="Your name"
                 />
+                <div className="text-xs text-gray-500 mt-1">{pollData.creatorName.length}/100 characters</div>
               </div>
 
               <div>

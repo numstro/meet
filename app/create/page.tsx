@@ -425,11 +425,6 @@ export default function CreatePollPage() {
                   value={pollData.deadline}
                   onChange={(e) => setPollData({ ...pollData, deadline: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  style={{ 
-                    fontSize: '20px',
-                    minHeight: '60px',
-                    zoom: '1.5'
-                  }}
                 />
               </div>
             </div>
@@ -460,11 +455,6 @@ export default function CreatePollPage() {
                       value={option.date}
                       onChange={(e) => updateTimeOption(index, 'date', e.target.value)}
                       className="w-48 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      style={{ 
-                        fontSize: '20px',
-                        minHeight: '60px',
-                        zoom: '1.5'
-                      }}
                     />
                   </div>
                   

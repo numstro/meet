@@ -129,7 +129,21 @@ export default function CreatePollPage() {
         userIpAddress = rateLimitData.ipAddress || '127.0.0.1'
         
         if (!response.ok || !rateLimitData.allowed) {
-          // Violation logging happens automatically in rate limit check
+          // Record violation in database
+          try {
+            await supabase
+              .from('rate_limit_violations')
+              .insert({
+                ip_address: userIpAddress,
+                violation_type: 'rate_limit_exceeded',
+                attempted_action: 'create_poll',
+                current_count: 9, // We know they're over limit
+                limit_exceeded: 5,
+                created_at: new Date().toISOString()
+              })
+          } catch (err) {
+            console.error('Failed to record violation:', err)
+          }
           
           const resetDate = new Date(rateLimitData.resetTime).toLocaleString()
           const reason = rateLimitData.reason || 'Rate limit exceeded'

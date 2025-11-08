@@ -1,4 +1,4 @@
-# Doodle Clone - Schedule Together
+# Meetup - Find the Perfect Time
 
 A simple, clean polling application built with Next.js and Supabase. Perfect for coordinating meetings with friends and small groups - just like Doodle!
 

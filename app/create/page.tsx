@@ -125,7 +125,12 @@ export default function CreatePollPage() {
       if (optionsError) throw optionsError
 
       // Redirect to the poll page
-      router.push(`/poll/${pollId}`)
+      if (isDemoMode) {
+        // In demo mode, redirect to the existing demo poll instead of the temporary one
+        router.push('/poll/1')  // Use the demo poll ID
+      } else {
+        router.push(`/poll/${pollId}`)
+      }
     } catch (err: any) {
       setError(err.message || 'Failed to create poll')
     } finally {

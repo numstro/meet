@@ -5,7 +5,7 @@ import './globals.css'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'Doodle Clone - Schedule Together',
+  title: 'Meetup - Find the Perfect Time',
   description: 'Create polls to find the perfect time for everyone',
 }
 
@@ -23,12 +23,12 @@ export default function RootLayout({
               <div className="flex justify-between h-16">
                 <div className="flex items-center">
                   <a href="/" className="text-xl font-semibold text-gray-900 hover:text-blue-600">
-                    📊 Schedule Together
+                    📊 Meetup
                   </a>
                 </div>
                 <div className="flex items-center space-x-4">
                   <a
-                    href="/create-demo"
+                    href="/create"
                     className="bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-700"
                   >
                     Create Poll

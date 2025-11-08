@@ -72,7 +72,7 @@ export default function HomePage() {
       {/* Hero Section */}
       <div className="text-center mb-12">
         <h1 className="text-4xl font-bold text-gray-900 mb-4">
-          📊 Schedule Together
+          📊 Meetup
         </h1>
         <p className="text-xl text-gray-600 mb-8">
           Create polls to find the perfect time for everyone

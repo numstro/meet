@@ -55,9 +55,9 @@ export async function POST(request: NextRequest) {
         const resend = new Resend(process.env.RESEND_API_KEY)
         
         await resend.emails.send({
-          from: 'Meetup <onboarding@resend.dev>',
+          from: 'onboarding@resend.dev',
           to: email,
-          subject: 'Access Your Polls - Meetup',
+          subject: 'Your Magic Link',
           html: `
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
               <h2>🪄 Access Your Polls</h2>

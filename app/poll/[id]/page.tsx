@@ -88,7 +88,11 @@ export default function PollPage() {
   // Helper function to determine poll status
   const getPollStatus = (poll: Poll) => {
     if (poll.deleted_at) return 'deleted'
-    if (poll.deadline && new Date(poll.deadline) < new Date()) return 'expired'
+    if (poll.deadline) {
+      // Set deadline to end of day (23:59:59) for proper comparison
+      const deadlineEndOfDay = new Date(poll.deadline + 'T23:59:59')
+      if (deadlineEndOfDay < new Date()) return 'expired'
+    }
     return 'active'
   }
 

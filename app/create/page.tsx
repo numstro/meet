@@ -126,7 +126,7 @@ export default function CreatePollPage() {
       today.setHours(0, 0, 0, 0) // Reset to start of day for comparison
       
       if (deadlineDate < today) {
-        setError('Response deadline cannot be in the past')
+        setError('Response deadline must be in the future')
         setIsSubmitting(false)
         return
       }
@@ -142,7 +142,7 @@ export default function CreatePollPage() {
     })
     
     if (hasPastDates) {
-      setError('Poll option dates cannot be in the past')
+        setError('Poll option dates must be in the future')
       setIsSubmitting(false)
       return
     }

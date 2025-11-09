@@ -252,7 +252,7 @@ export default function MonitoringDashboard() {
       if (result.success) {
         alert(result.message)
         // Refresh data to show updated counts
-        loadData()
+        loadStats()
       } else {
         alert('Failed to reset rate limit: ' + result.message)
       }

@@ -253,6 +253,36 @@ export async function getBannedIPs(): Promise<any[]> {
 }
 
 // Clean up old rate limit records (call this periodically)
+export async function resetRateLimit(ipAddress: string): Promise<{ success: boolean; message: string }> {
+  if (isDemoMode) {
+    return { success: true, message: 'Rate limit reset (demo mode)' }
+  }
+
+  try {
+    // Delete all polls created by this IP in the last 24 hours to reset their rate limit
+    const windowStart = new Date(Date.now() - RATE_LIMIT_WINDOW)
+    
+    const { error } = await supabase
+      .from('polls')
+      .delete()
+      .eq('creator_ip', ipAddress)
+      .gte('created_at', windowStart.toISOString())
+
+    if (error) {
+      console.error('Rate limit reset error:', error)
+      return { success: false, message: 'Failed to reset rate limit' }
+    }
+
+    return { 
+      success: true, 
+      message: `Rate limit reset for IP ${ipAddress}` 
+    }
+  } catch (err) {
+    console.error('Rate limit reset error:', err)
+    return { success: false, message: 'Internal error' }
+  }
+}
+
 export async function cleanupRateLimits(): Promise<void> {
   if (isDemoMode) return
 

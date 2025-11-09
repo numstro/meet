@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { supabase, isDemoMode } from '@/lib/supabase'
 import { format, subDays, startOfDay, endOfDay, addDays } from 'date-fns'
-import { banIP, unbanIP, getBannedIPs } from '@/lib/rate-limit'
+import { banIP, unbanIP, getBannedIPs, resetRateLimit } from '@/lib/rate-limit'
 import Link from 'next/link'
 
 interface RateLimit {
@@ -239,6 +239,25 @@ export default function MonitoringDashboard() {
       alert('Error loading statistics')
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  const handleResetRateLimit = async (ipAddress: string) => {
+    if (!confirm(`Reset rate limit for IP ${ipAddress}? This will allow them to create polls again.`)) {
+      return
+    }
+
+    try {
+      const result = await resetRateLimit(ipAddress)
+      if (result.success) {
+        alert(result.message)
+        // Refresh data to show updated counts
+        loadData()
+      } else {
+        alert('Failed to reset rate limit: ' + result.message)
+      }
+    } catch (err) {
+      alert('Error resetting rate limit')
     }
   }
 
@@ -618,7 +637,13 @@ export default function MonitoringDashboard() {
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm space-x-2">
+                      <button
+                        onClick={() => handleResetRateLimit(violation.ip_address)}
+                        className="px-3 py-1 bg-blue-600 text-white text-xs rounded-md hover:bg-blue-700 transition-colors"
+                      >
+                        🔄 Reset Limit
+                      </button>
                       <button
                         onClick={() => handleBanIP(violation.ip_address)}
                         className="px-3 py-1 bg-red-600 text-white text-xs rounded-md hover:bg-red-700 transition-colors"

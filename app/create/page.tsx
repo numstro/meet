@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { supabase, isDemoMode } from '@/lib/supabase'
+import { supabase } from '@/lib/supabase'
 import { format, addDays } from 'date-fns'
 
 interface TimeOption {
@@ -28,7 +28,7 @@ export default function CreatePollPage() {
   const [timeOptions, setTimeOptions] = useState<TimeOption[]>([
     {
       date: format(addDays(new Date(), 1), 'yyyy-MM-dd'),
-      timeBuckets: ['morning']
+      timeBuckets: []
     }
   ])
 
@@ -55,7 +55,7 @@ export default function CreatePollPage() {
       ...timeOptions,
       {
         date: dateString,
-        timeBuckets: ['morning']
+        timeBuckets: []
       }
     ])
   }
@@ -200,12 +200,8 @@ export default function CreatePollPage() {
 
       // No need to record rate limits separately - polls table is now the source of truth!
 
-      // Show share link instead of redirecting
-      if (isDemoMode) {
-        setCreatedPollId('1') // Demo poll ID
-      } else {
-        setCreatedPollId(pollId)
-      }
+      // Redirect directly to the poll
+      router.push(`/poll/${pollId}`)
     } catch (err: any) {
       setError(err.message || 'Failed to create poll')
     } finally {
@@ -313,7 +309,7 @@ export default function CreatePollPage() {
               })
               setTimeOptions([{
                 date: format(addDays(new Date(), 1), 'yyyy-MM-dd'),
-                timeBuckets: ['morning']
+                timeBuckets: []
               }])
                 }}
                 className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-colors"

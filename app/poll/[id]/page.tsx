@@ -21,6 +21,7 @@ interface PollOption {
   start_time: string | null
   end_time: string | null
   option_text: string | null
+  proposed_by_name?: string | null
 }
 
 interface PollResponse {

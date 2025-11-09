@@ -474,10 +474,10 @@ export default function PollPage() {
         <div className="flex justify-between items-start mb-2">
           <h1 className="text-3xl font-bold text-gray-900">{poll.title}</h1>
           <button
-            onClick={() => window.location.href = '/find-polls'}
+            onClick={() => setShowDeleteConfirm(true)}
             className="text-red-600 hover:text-red-800 text-sm font-medium px-3 py-1 rounded border border-red-200 hover:border-red-300 transition-colors"
           >
-            🗑️ Manage Poll
+            🗑️ Delete Poll
           </button>
         </div>
         {poll.description && (

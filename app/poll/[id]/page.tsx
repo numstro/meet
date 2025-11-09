@@ -13,6 +13,7 @@ interface Poll {
   creator_email: string
   location?: string
   deadline?: string
+  deleted_at?: string | null
 }
 
 interface PollOption {
@@ -83,6 +84,13 @@ export default function PollPage() {
     { value: 'afternoon', label: '☀️ Afternoon', description: '12 PM - 5 PM' },
     { value: 'evening', label: '🌙 Evening', description: '5 PM - 9 PM' }
   ] as const
+
+  // Helper function to determine poll status
+  const getPollStatus = (poll: Poll) => {
+    if (poll.deleted_at) return 'deleted'
+    if (poll.deadline && new Date(poll.deadline) < new Date()) return 'expired'
+    return 'active'
+  }
 
   useEffect(() => {
     if (pollId) {
@@ -415,26 +423,10 @@ export default function PollPage() {
     setError('')
 
     try {
-      // Delete poll options first (due to foreign key constraints)
-      const { error: optionsError } = await supabase
-        .from('poll_options')
-        .delete()
-        .eq('poll_id', pollId)
-
-      if (optionsError) throw optionsError
-
-      // Delete poll responses
-      const { error: responsesError } = await supabase
-        .from('poll_responses')
-        .delete()
-        .eq('poll_id', pollId)
-
-      if (responsesError) throw responsesError
-
-      // Delete the poll
+      // Soft delete: just set deleted_at timestamp
       const { error: pollError } = await supabase
         .from('polls')
-        .delete()
+        .update({ deleted_at: new Date().toISOString() })
         .eq('id', pollId)
 
       if (pollError) throw pollError
@@ -523,6 +515,36 @@ export default function PollPage() {
           </button>
         </div>
       </div>
+
+      {/* Poll Status Banner */}
+      {poll && getPollStatus(poll) !== 'active' && (
+        <div className={`rounded-lg p-4 mb-8 ${
+          getPollStatus(poll) === 'expired' 
+            ? 'bg-yellow-50 border border-yellow-200' 
+            : 'bg-red-50 border border-red-200'
+        }`}>
+          <div className="flex items-center">
+            <span className="text-2xl mr-3">
+              {getPollStatus(poll) === 'expired' ? '⏰' : '🗑️'}
+            </span>
+            <div>
+              <h3 className={`font-semibold ${
+                getPollStatus(poll) === 'expired' ? 'text-yellow-800' : 'text-red-800'
+              }`}>
+                {getPollStatus(poll) === 'expired' ? 'Poll Expired' : 'Poll Deleted'}
+              </h3>
+              <p className={`text-sm ${
+                getPollStatus(poll) === 'expired' ? 'text-yellow-700' : 'text-red-700'
+              }`}>
+                {getPollStatus(poll) === 'expired' 
+                  ? 'This poll has passed its response deadline, but you can still view the results.'
+                  : 'This poll has been deleted by the creator.'
+                }
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Doodle-style Grid Results */}
       <div className="bg-white rounded-lg shadow p-6 mb-8">

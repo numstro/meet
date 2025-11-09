@@ -15,6 +15,7 @@ interface Poll {
   location?: string
   deadline?: string
   created_at: string
+  deleted_at?: string | null
 }
 
 interface BannedIP {
@@ -34,6 +35,19 @@ export default function AdminDashboard() {
   const [bannedIPs, setBannedIPs] = useState<BannedIP[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [isDeleting, setIsDeleting] = useState<string | null>(null)
+  const [activeTab, setActiveTab] = useState<'active' | 'expired' | 'deleted'>('active')
+
+  // Helper function to determine poll status
+  const getPollStatus = (poll: Poll) => {
+    if (poll.deleted_at) return 'deleted'
+    if (poll.deadline && new Date(poll.deadline) < new Date()) return 'expired'
+    return 'active'
+  }
+
+  // Filter polls by status
+  const activePolls = polls.filter(poll => getPollStatus(poll) === 'active')
+  const expiredPolls = polls.filter(poll => getPollStatus(poll) === 'expired')
+  const deletedPolls = polls.filter(poll => getPollStatus(poll) === 'deleted')
   
   // Ban form state
   const [showBanForm, setShowBanForm] = useState(false)

@@ -131,7 +131,21 @@ export default function PollPage() {
         .order('start_time')
 
       if (optionsError) throw optionsError
-      setOptions(optionsData || [])
+      
+      // Sort options by date first, then by time of day (morning, afternoon, evening)
+      const timeOrder = { 'morning': 1, 'afternoon': 2, 'evening': 3 }
+      const sortedOptions = (optionsData || []).sort((a, b) => {
+        // First sort by date
+        if (a.option_date !== b.option_date) {
+          return a.option_date.localeCompare(b.option_date)
+        }
+        // Then sort by time of day
+        const aTime = timeOrder[a.option_text as keyof typeof timeOrder] || 999
+        const bTime = timeOrder[b.option_text as keyof typeof timeOrder] || 999
+        return aTime - bTime
+      })
+      
+      setOptions(sortedOptions)
 
       // Load responses
       const { data: responsesData, error: responsesError } = await supabase

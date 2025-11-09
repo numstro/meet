@@ -380,9 +380,23 @@ export default function PollPage() {
   }
 
   const getBestOptions = () => {
-    return summary
-      .sort((a, b) => b.yes_count - a.yes_count)
-      .slice(0, 3)
+    // Calculate weighted scores: yes=2, maybe=1, no=0
+    const optionsWithScores = summary.map(option => ({
+      ...option,
+      score: (option.yes_count * 2) + (option.maybe_count * 1) + (option.no_count * 0)
+    }))
+
+    // Find the highest score
+    const maxScore = Math.max(...optionsWithScores.map(opt => opt.score))
+    
+    // Get all options with the highest score
+    const topScoredOptions = optionsWithScores.filter(opt => opt.score === maxScore)
+    
+    // If there are ties, break by most 'yes' votes
+    const maxYesCount = Math.max(...topScoredOptions.map(opt => opt.yes_count))
+    const finalWinners = topScoredOptions.filter(opt => opt.yes_count === maxYesCount)
+    
+    return finalWinners
   }
 
   const deletePoll = async () => {
@@ -531,7 +545,7 @@ export default function PollPage() {
                       const optionSummary = summary.find(s => s.option_id === option.id)
                       const yesCount = optionSummary?.yes_count || 0
                       const bestOptions = getBestOptions()
-                      const isTopChoice = bestOptions.length > 0 && bestOptions[0]?.option_id === option.id
+                      const isTopChoice = bestOptions.some(best => best.option_id === option.id)
                       
                       return (
                         <th key={option.id} className={`text-center p-2 border-r border-gray-200 min-w-[90px] ${isTopChoice ? 'bg-red-100 border-2 border-red-400' : ''}`}>
@@ -586,7 +600,7 @@ export default function PollPage() {
                             r.participant_email === email && r.option_id === option.id
                           )
                           const bestOptions = getBestOptions()
-                          const isTopChoice = bestOptions.length > 0 && bestOptions[0]?.option_id === option.id
+                          const isTopChoice = bestOptions.some(best => best.option_id === option.id)
                           
                           return (
                             <td key={option.id} className={`text-center p-2 border-r border-b border-gray-200 ${isTopChoice ? 'bg-red-50' : ''}`}>

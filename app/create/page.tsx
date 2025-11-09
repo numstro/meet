@@ -462,13 +462,13 @@ export default function CreatePollPage() {
                     Date
                   </th>
                   <th className="text-center p-2 sm:p-3 border-r border-gray-200 font-medium w-16 sm:w-28">
-                    <span className="hidden sm:inline">🌅 </span>Morn
+                    🌅 Morning
                   </th>
                   <th className="text-center p-2 sm:p-3 border-r border-gray-200 font-medium w-16 sm:w-28">
-                    <span className="hidden sm:inline">☀️ </span>After
+                    ☀️ Afternoon
                   </th>
                   <th className="text-center p-2 sm:p-3 border-r border-gray-200 font-medium w-16 sm:w-28">
-                    <span className="hidden sm:inline">🌙 </span>Eve
+                    🌙 Evening
                   </th>
                   <th className="text-center p-2 sm:p-3 font-medium w-10 sm:w-16">
                   </th>

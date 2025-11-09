@@ -455,37 +455,37 @@ export default function CreatePollPage() {
           </div>
 
           <div className="overflow-x-auto border border-gray-200 rounded-lg">
-            <table className="w-full border-collapse min-w-[600px]">
+            <table className="w-full border-collapse min-w-[680px]">
               <thead>
                 <tr className="bg-gray-50">
-                  <th className="text-left p-2 sm:p-3 border-r border-gray-200 font-medium min-w-[160px] sm:min-w-[180px]">
+                  <th className="text-left p-2 sm:p-3 border-r border-gray-200 font-medium w-48 sm:w-52">
                     Date
                   </th>
-                  <th className="text-center p-2 sm:p-3 border-r border-gray-200 font-medium w-16 sm:w-28">
+                  <th className="text-center p-2 sm:p-3 border-r border-gray-200 font-medium w-24 sm:w-28">
                     🌅 Morning
                   </th>
-                  <th className="text-center p-2 sm:p-3 border-r border-gray-200 font-medium w-16 sm:w-28">
+                  <th className="text-center p-2 sm:p-3 border-r border-gray-200 font-medium w-24 sm:w-28">
                     ☀️ Afternoon
                   </th>
-                  <th className="text-center p-2 sm:p-3 border-r border-gray-200 font-medium w-16 sm:w-28">
+                  <th className="text-center p-2 sm:p-3 border-r border-gray-200 font-medium w-24 sm:w-28">
                     🌙 Evening
                   </th>
-                  <th className="text-center p-2 sm:p-3 font-medium w-10 sm:w-16">
+                  <th className="text-center p-2 sm:p-3 font-medium w-12 sm:w-16">
                   </th>
                 </tr>
               </thead>
               <tbody>
                 {timeOptions.map((option, index) => (
                   <tr key={index} className="hover:bg-gray-50">
-                    <td className="p-1.5 sm:p-3 border-r border-b border-gray-200">
+                    <td className="p-2 sm:p-3 border-r border-b border-gray-200">
                       <input
                         type="date"
                         value={option.date}
                         onChange={(e) => updateTimeOption(index, 'date', e.target.value)}
-                        className="w-full px-1.5 py-1 sm:px-3 sm:py-2 text-xs sm:text-base border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-2 py-1.5 sm:px-3 sm:py-2 text-sm sm:text-base border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />
                       {option.date && (
-                        <div className="text-xs text-gray-500 mt-0.5 sm:mt-1 whitespace-nowrap">
+                        <div className="text-xs text-gray-500 mt-1 whitespace-nowrap">
                           {format(new Date(option.date + 'T00:00:00'), 'EEEE')}
                         </div>
                       )}

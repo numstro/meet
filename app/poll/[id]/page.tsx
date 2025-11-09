@@ -300,7 +300,7 @@ export default function PollPage() {
         start_time: null,
         end_time: null,
         option_text: bucket,
-        proposed_by_name: proposerName
+        ...(proposerName && { proposed_by_name: proposerName })
       }))
 
       // Filter out options that already exist
@@ -854,7 +854,7 @@ export default function PollPage() {
                         />
                         {proposedDate && (
                           <div className="text-xs text-gray-500 mt-1">
-                            {format(new Date(proposedDate), 'EEE, MMM d')}
+                            {format(new Date(proposedDate), 'EEEE')}
                           </div>
                         )}
                       </td>

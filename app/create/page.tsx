@@ -443,7 +443,6 @@ export default function CreatePollPage() {
                     🌙 Evening
                   </th>
                   <th className="text-center p-3 font-medium w-20">
-                    Action
                   </th>
                 </tr>
               </thead>
@@ -459,7 +458,7 @@ export default function CreatePollPage() {
                       />
                       {option.date && (
                         <div className="text-xs text-gray-500 mt-1">
-                          {format(new Date(option.date), 'EEE, MMM d')}
+                          {format(new Date(option.date), 'EEEE')}
                         </div>
                       )}
                     </td>

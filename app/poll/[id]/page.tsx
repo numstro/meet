@@ -380,6 +380,12 @@ export default function PollPage() {
   }
 
   const getBestOptions = () => {
+    // Don't highlight winners if there are too few participants (0 or 1)
+    const totalParticipants = new Set(responses.map(r => r.participant_email)).size
+    if (totalParticipants <= 1) {
+      return []
+    }
+
     // Calculate weighted scores: yes=2, maybe=1, no=0
     const optionsWithScores = summary.map(option => ({
       ...option,

@@ -35,7 +35,7 @@ export default function Contact() {
         setError(data.error || 'Failed to send message. Please try emailing us directly.')
       }
     } catch (err) {
-      setError('Failed to send message. Please try emailing us directly at kennyjchang@gmail.com')
+      setError('Failed to send message. Please try emailing us directly at dev@numstro.com')
     } finally {
       setIsSubmitting(false)
     }
@@ -141,8 +141,8 @@ export default function Contact() {
             <div className="mt-6 pt-6 border-t border-gray-200 text-center">
               <p className="text-sm text-gray-600">
                 Or email us directly at{' '}
-                <a href="mailto:kennyjchang@gmail.com" className="text-blue-600 hover:text-blue-700 font-medium">
-                  kennyjchang@gmail.com
+                <a href="mailto:dev@numstro.com" className="text-blue-600 hover:text-blue-700 font-medium">
+                  dev@numstro.com
                 </a>
               </p>
             </div>

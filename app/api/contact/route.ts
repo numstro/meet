@@ -27,8 +27,8 @@ export async function POST(request: Request) {
     // Send email notification to admin
     const { data, error } = await resend.emails.send({
       from: 'Meetup Contact <noreply@numstro.com>',
-      to: 'kennyjchang@gmail.com', // Your email
-      replyTo: email, // User's email for easy replies
+      to: 'dev@numstro.com', // Your email
+      reply_to: email, // User's email for easy replies
       subject: `[Meetup Contact] ${subject}`,
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">

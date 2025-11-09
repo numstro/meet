@@ -70,6 +70,16 @@ export default function HomePage() {
         </div>
       </div>
 
+      {/* Footer */}
+      <div className="text-center pt-8 border-t border-gray-200 mt-12">
+        <p className="text-gray-600 mb-2">
+          Need help? Have feedback?{' '}
+          <Link href="/contact" className="text-blue-600 hover:text-blue-700 font-medium">
+            Contact Us
+          </Link>
+        </p>
+      </div>
+
     </div>
   )
 }

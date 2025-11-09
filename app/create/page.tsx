@@ -418,74 +418,80 @@ export default function CreatePollPage() {
               onClick={addTimeOption}
               className="px-3 py-1 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700"
             >
-              Add Option
+              Add Date
             </button>
           </div>
 
-          <div className="space-y-6">
-            {timeOptions.map((option, index) => (
-              <div key={index} className="p-4 border border-gray-200 rounded-lg">
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex-1">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Date</label>
-                    <input
-                      type="date"
-                      value={option.date}
-                      onChange={(e) => updateTimeOption(index, 'date', e.target.value)}
-                      className="w-48 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                  
-                  {timeOptions.length > 1 && (
-                    <button
-                      type="button"
-                      onClick={() => removeTimeOption(index)}
-                      className="text-red-600 hover:text-red-800 p-1 ml-4"
-                      title="Remove this date"
-                    >
-                      ✕
-                    </button>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-3">
-                    Time of Day (select all that work)
-                  </label>
-                  <div className="grid grid-cols-1 gap-3">
-                    {timeBuckets.map((bucket) => (
-                      <label
-                        key={bucket.value}
-                        className="flex items-center p-3 border border-gray-200 rounded-md hover:bg-gray-50 cursor-pointer"
-                      >
+          <div className="overflow-x-auto border border-gray-200 rounded-lg">
+            <table className="w-full border-collapse">
+              <thead>
+                <tr className="bg-gray-50">
+                  <th className="text-left p-3 border-r border-gray-200 min-w-[120px] font-medium">
+                    Time Period
+                  </th>
+                  {timeOptions.map((option, index) => (
+                    <th key={index} className="text-center p-2 border-r border-gray-200 min-w-[120px]">
+                      <div className="space-y-2">
                         <input
-                          type="checkbox"
-                          checked={option.timeBuckets.includes(bucket.value)}
-                          onChange={() => toggleTimeBucket(index, bucket.value)}
-                          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                          type="date"
+                          value={option.date}
+                          onChange={(e) => updateTimeOption(index, 'date', e.target.value)}
+                          className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
                         />
-                        <div className="ml-3 flex-1">
-                          <div className="text-sm font-medium text-gray-900">
-                            {bucket.label}
-                          </div>
-                          <div className="text-xs text-gray-500">
-                            {bucket.description}
-                          </div>
+                        {timeOptions.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => removeTimeOption(index)}
+                            className="text-red-600 hover:text-red-800 text-xs px-2 py-1 border border-red-300 rounded hover:bg-red-50"
+                            title="Remove this date"
+                          >
+                            Remove
+                          </button>
+                        )}
+                      </div>
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {timeBuckets.map((bucket) => (
+                  <tr key={bucket.value} className="hover:bg-gray-50">
+                    <td className="p-3 border-r border-b border-gray-200 font-medium">
+                      <div className="flex items-center space-x-2">
+                        <span className="text-lg">
+                          {bucket.value === 'morning' && '🌅'}
+                          {bucket.value === 'afternoon' && '☀️'}
+                          {bucket.value === 'evening' && '🌙'}
+                        </span>
+                        <div>
+                          <div className="font-medium text-gray-900">{bucket.label}</div>
+                          <div className="text-xs text-gray-500">{bucket.description}</div>
                         </div>
-                      </label>
+                      </div>
+                    </td>
+                    {timeOptions.map((option, index) => (
+                      <td key={index} className="p-3 border-r border-b border-gray-200 text-center">
+                        <button
+                          type="button"
+                          onClick={() => toggleTimeBucket(index, bucket.value)}
+                          className={`w-8 h-8 rounded-full border-2 transition-colors ${
+                            option.timeBuckets.includes(bucket.value)
+                              ? 'bg-blue-500 border-blue-500 text-white'
+                              : 'border-gray-300 hover:border-blue-400'
+                          }`}
+                        >
+                          {option.timeBuckets.includes(bucket.value) ? '✓' : ''}
+                        </button>
+                      </td>
                     ))}
-                  </div>
-                </div>
-
-                {option.timeBuckets.length > 0 && (
-                  <div className="mt-3 p-2 bg-blue-50 rounded-md">
-                    <div className="text-sm text-blue-800">
-                      <strong>Preview:</strong> {formatDateTime(option.date, option.timeBuckets)}
-                    </div>
-                  </div>
-                )}
-              </div>
-            ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          
+          <div className="mt-4 text-sm text-gray-600">
+            💡 Click the circles to select which time periods work for each date
           </div>
         </div>
 

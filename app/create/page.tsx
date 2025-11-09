@@ -119,46 +119,44 @@ export default function CreatePollPage() {
       return
     }
 
-    // Check rate limit and get IP address (skip in demo mode)
+    // Check rate limit and get IP address
     let userIpAddress = '127.0.0.1' // fallback
-    if (!isDemoMode) {
-      try {
-        const response = await fetch('/api/rate-limit')
-        const rateLimitData = await response.json()
-        
-        // Store IP address for poll creation
-        userIpAddress = rateLimitData.ipAddress || '127.0.0.1'
-        
-        if (!response.ok || !rateLimitData.allowed) {
-          // Record violation in database
-          try {
-            await supabase
-              .from('rate_limit_violations')
-              .insert({
-                ip_address: userIpAddress,
-                violation_type: 'rate_limit_exceeded',
-                attempted_action: 'create_poll',
-                current_count: 9, // We know they're over limit
-                limit_exceeded: 5,
-                created_at: new Date().toISOString()
-              })
-          } catch (err) {
-            console.error('Failed to record violation:', err)
-          }
-          
-          const resetDate = new Date(rateLimitData.resetTime).toLocaleString()
-          const reason = rateLimitData.reason || 'Rate limit exceeded'
-          setError(`${reason}. Rate limit resets at ${resetDate}`)
-          setIsSubmitting(false)
-          return
+    try {
+      const response = await fetch('/api/rate-limit')
+      const rateLimitData = await response.json()
+      
+      // Store IP address for poll creation
+      userIpAddress = rateLimitData.ipAddress || '127.0.0.1'
+      
+      if (!response.ok || !rateLimitData.allowed) {
+        // Record violation in database
+        try {
+          await supabase
+            .from('rate_limit_violations')
+            .insert({
+              ip_address: userIpAddress,
+              violation_type: 'rate_limit_exceeded',
+              attempted_action: 'create_poll',
+              current_count: 9, // We know they're over limit
+              limit_exceeded: 5,
+              created_at: new Date().toISOString()
+            })
+        } catch (err) {
+          console.error('Failed to record violation:', err)
         }
-      } catch (rateLimitError) {
-        console.error('Rate limit check failed:', rateLimitError)
-        // SECURITY: Do not allow poll creation if rate limit check fails
-        setError('Rate limit check failed. Please try again in a moment.')
+        
+        const resetDate = new Date(rateLimitData.resetTime).toLocaleString()
+        const reason = rateLimitData.reason || 'Rate limit exceeded'
+        setError(`${reason}. Rate limit resets at ${resetDate}`)
         setIsSubmitting(false)
         return
       }
+    } catch (rateLimitError) {
+      console.error('Rate limit check failed:', rateLimitError)
+      // SECURITY: Do not allow poll creation if rate limit check fails
+      setError('Rate limit check failed. Please try again in a moment.')
+      setIsSubmitting(false)
+      return
     }
 
     try {

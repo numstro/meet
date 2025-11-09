@@ -26,7 +26,11 @@ export default function MagicAuth() {
 
   // Helper function to determine poll status
   const getPollStatus = (poll: Poll) => {
-    if (poll.deadline && new Date(poll.deadline) < new Date()) return 'expired'
+    if (poll.deadline) {
+      // Set deadline to end of day (23:59:59) for proper comparison
+      const deadlineEndOfDay = new Date(poll.deadline + 'T23:59:59')
+      if (deadlineEndOfDay < new Date()) return 'expired'
+    }
     return 'active'
   }
 
@@ -39,6 +43,27 @@ export default function MagicAuth() {
   const token = searchParams.get('token')
 
   useEffect(() => {
+    // Check if user has a valid session in localStorage first
+    const storedEmail = localStorage.getItem('meetup_auth_email')
+    const storedExpiry = localStorage.getItem('meetup_auth_expiry')
+    
+    if (storedEmail && storedExpiry) {
+      const expiryTime = parseInt(storedExpiry)
+      if (Date.now() < expiryTime) {
+        // Valid stored session, use it
+        setIsAuthenticated(true)
+        setEmail(storedEmail)
+        setIsValidating(false)
+        loadUserPolls(storedEmail)
+        return
+      } else {
+        // Session expired, clear it
+        localStorage.removeItem('meetup_auth_email')
+        localStorage.removeItem('meetup_auth_expiry')
+      }
+    }
+
+    // No valid stored session, validate token
     if (!token) {
       setError('No authentication token provided')
       setIsValidating(false)
@@ -61,6 +86,12 @@ export default function MagicAuth() {
       if (response.ok && data.valid) {
         setIsAuthenticated(true)
         setEmail(data.email)
+        
+        // Store session in localStorage (1 hour expiry)
+        const sessionExpiry = Date.now() + (60 * 60 * 1000) // 1 hour
+        localStorage.setItem('meetup_auth_email', data.email)
+        localStorage.setItem('meetup_auth_expiry', sessionExpiry.toString())
+        
         loadUserPolls(data.email)
       } else {
         setError(data.error || 'Invalid or expired magic link')
@@ -185,12 +216,24 @@ export default function MagicAuth() {
           <div className="mb-8">
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-xl font-semibold text-gray-900">Your Polls</h2>
-              <Link
-                href="/create"
-                className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors"
-              >
-                Create New Poll
-              </Link>
+              <div className="flex gap-3">
+                <Link
+                  href="/create"
+                  className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors"
+                >
+                  Create New Poll
+                </Link>
+                <button
+                  onClick={() => {
+                    localStorage.removeItem('meetup_auth_email')
+                    localStorage.removeItem('meetup_auth_expiry')
+                    window.location.href = '/'
+                  }}
+                  className="bg-gray-200 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-300 transition-colors"
+                >
+                  Sign Out
+                </button>
+              </div>
             </div>
 
             {/* Active/Archive Toggle */}

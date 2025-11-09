@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useParams } from 'next/navigation'
+import { useParams, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { format } from 'date-fns'
 
@@ -46,6 +46,7 @@ interface PollSummary {
 
 export default function PollPage() {
   const params = useParams()
+  const searchParams = useSearchParams()
   const pollId = params.id as string
 
   const [poll, setPoll] = useState<Poll | null>(null)
@@ -88,6 +89,23 @@ export default function PollPage() {
       loadPollData()
     }
   }, [pollId])
+
+  // Auto-populate creator info from URL params (only when coming from poll creation)
+  useEffect(() => {
+    const creatorName = searchParams.get('creatorName')
+    const creatorEmail = searchParams.get('creatorEmail')
+    
+    if (creatorName && creatorEmail) {
+      setParticipantName(creatorName)
+      setParticipantEmail(creatorEmail)
+      
+      // Clear the URL params after setting them (optional, for cleaner URLs)
+      const url = new URL(window.location.href)
+      url.searchParams.delete('creatorName')
+      url.searchParams.delete('creatorEmail')
+      window.history.replaceState({}, '', url.toString())
+    }
+  }, [searchParams])
 
   const loadPollData = async () => {
     try {

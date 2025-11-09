@@ -198,8 +198,12 @@ export default function CreatePollPage() {
 
       // No need to record rate limits separately - polls table is now the source of truth!
 
-      // Redirect directly to the poll
-      router.push(`/poll/${pollId}`)
+      // Redirect directly to the poll with creator info for auto-population
+      const params = new URLSearchParams({
+        creatorName: pollData.creatorName,
+        creatorEmail: pollData.creatorEmail
+      })
+      router.push(`/poll/${pollId}?${params.toString()}`)
     } catch (err: any) {
       setError(err.message || 'Failed to create poll')
     } finally {
@@ -422,76 +426,55 @@ export default function CreatePollPage() {
             </button>
           </div>
 
-          <div className="overflow-x-auto border border-gray-200 rounded-lg">
-            <table className="w-full border-collapse">
-              <thead>
-                <tr className="bg-gray-50">
-                  <th className="text-left p-3 border-r border-gray-200 min-w-[120px] font-medium">
-                    Time Period
-                  </th>
-                  {timeOptions.map((option, index) => (
-                    <th key={index} className="text-center p-2 border-r border-gray-200 min-w-[120px]">
-                      <div className="space-y-2">
-                        <input
-                          type="date"
-                          value={option.date}
-                          onChange={(e) => updateTimeOption(index, 'date', e.target.value)}
-                          className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
-                        />
-                        {timeOptions.length > 1 && (
-                          <button
-                            type="button"
-                            onClick={() => removeTimeOption(index)}
-                            className="text-red-600 hover:text-red-800 text-xs px-2 py-1 border border-red-300 rounded hover:bg-red-50"
-                            title="Remove this date"
-                          >
-                            Remove
-                          </button>
-                        )}
-                      </div>
-                    </th>
+          <div className="space-y-4">
+            {timeOptions.map((option, index) => (
+              <div key={index} className="flex items-center gap-4 p-4 border border-gray-200 rounded-lg">
+                {/* Date Column */}
+                <div className="flex-1 min-w-[200px]">
+                  <input
+                    type="date"
+                    value={option.date}
+                    onChange={(e) => updateTimeOption(index, 'date', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <div className="text-xs text-gray-500 mt-1">
+                    {option.date && format(new Date(option.date), 'EEE, MMM d')}
+                  </div>
+                </div>
+
+                {/* Time Period Checkboxes */}
+                <div className="flex gap-6">
+                  {timeBuckets.map((bucket) => (
+                    <label key={bucket.value} className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={option.timeBuckets.includes(bucket.value)}
+                        onChange={() => toggleTimeBucket(index, bucket.value)}
+                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                      />
+                      <span className="text-lg">
+                        {bucket.value === 'morning' && '🌅'}
+                        {bucket.value === 'afternoon' && '☀️'}
+                        {bucket.value === 'evening' && '🌙'}
+                      </span>
+                      <span className="text-sm font-medium">{bucket.label}</span>
+                    </label>
                   ))}
-                </tr>
-              </thead>
-              <tbody>
-                {timeBuckets.map((bucket) => (
-                  <tr key={bucket.value} className="hover:bg-gray-50">
-                    <td className="p-3 border-r border-b border-gray-200 font-medium">
-                      <div className="flex items-center space-x-2">
-                        <span className="text-lg">
-                          {bucket.value === 'morning' && '🌅'}
-                          {bucket.value === 'afternoon' && '☀️'}
-                          {bucket.value === 'evening' && '🌙'}
-                        </span>
-                        <div>
-                          <div className="font-medium text-gray-900">{bucket.label}</div>
-                          <div className="text-xs text-gray-500">{bucket.description}</div>
-                        </div>
-                      </div>
-                    </td>
-                    {timeOptions.map((option, index) => (
-                      <td key={index} className="p-3 border-r border-b border-gray-200 text-center">
-                        <button
-                          type="button"
-                          onClick={() => toggleTimeBucket(index, bucket.value)}
-                          className={`w-8 h-8 rounded-full border-2 transition-colors ${
-                            option.timeBuckets.includes(bucket.value)
-                              ? 'bg-blue-500 border-blue-500 text-white'
-                              : 'border-gray-300 hover:border-blue-400'
-                          }`}
-                        >
-                          {option.timeBuckets.includes(bucket.value) ? '✓' : ''}
-                        </button>
-                      </td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          
-          <div className="mt-4 text-sm text-gray-600">
-            💡 Click the circles to select which time periods work for each date
+                </div>
+
+                {/* Remove Button */}
+                {timeOptions.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => removeTimeOption(index)}
+                    className="text-red-600 hover:text-red-800 p-2"
+                    title="Remove this date"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+            ))}
           </div>
         </div>
 

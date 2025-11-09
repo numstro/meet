@@ -458,7 +458,7 @@ export default function CreatePollPage() {
                       />
                       {option.date && (
                         <div className="text-xs text-gray-500 mt-1">
-                          {format(new Date(option.date), 'EEEE')}
+                          {format(new Date(option.date + 'T00:00:00'), 'EEEE')}
                         </div>
                       )}
                     </td>

@@ -453,7 +453,7 @@ export default function PollPage() {
           <span>👤 Created by {poll.creator_name}</span>
           {poll.location && <span>📍 {poll.location}</span>}
           {poll.deadline && (
-            <span>⏰ Respond by {format(new Date(poll.deadline), 'MMM d, yyyy')}</span>
+            <span>⏰ Respond by {format(new Date(poll.deadline + 'T00:00:00'), 'MMM d, yyyy')}</span>
           )}
         </div>
       </div>
@@ -522,13 +522,13 @@ export default function PollPage() {
                       return (
                         <th key={option.id} className={`text-center p-2 border-r border-gray-200 min-w-[90px] ${isTopChoice ? 'bg-red-100 border-2 border-red-400' : ''}`}>
                           <div className="text-xs text-gray-500 mb-1">
-                            {format(new Date(option.option_date), 'MMM')}
+                            {format(new Date(option.option_date + 'T00:00:00'), 'MMM')}
                           </div>
                           <div className="font-bold text-lg">
-                            {format(new Date(option.option_date), 'd')}
+                            {format(new Date(option.option_date + 'T00:00:00'), 'd')}
                           </div>
                           <div className="text-xs text-gray-500 uppercase mb-1">
-                            {format(new Date(option.option_date), 'EEE')}
+                            {format(new Date(option.option_date + 'T00:00:00'), 'EEE')}
                           </div>
                           <div className="text-xs font-medium text-gray-700">
                             {option.option_text === 'morning' && '🌅 Morning'}
@@ -695,13 +695,13 @@ export default function PollPage() {
                       {options.map((option) => (
                         <th key={option.id} className="text-center p-2 border-r border-gray-200 min-w-[90px]">
                           <div className="text-xs text-gray-500 mb-1">
-                            {format(new Date(option.option_date), 'MMM')}
+                            {format(new Date(option.option_date + 'T00:00:00'), 'MMM')}
                           </div>
                           <div className="font-bold text-lg">
-                            {format(new Date(option.option_date), 'd')}
+                            {format(new Date(option.option_date + 'T00:00:00'), 'd')}
                           </div>
                           <div className="text-xs text-gray-500 uppercase mb-1">
-                            {format(new Date(option.option_date), 'EEE')}
+                            {format(new Date(option.option_date + 'T00:00:00'), 'EEE')}
                           </div>
                           <div className="text-xs font-medium text-gray-700">
                             {option.option_text === 'morning' && '🌅 Morning'}
@@ -854,7 +854,7 @@ export default function PollPage() {
                         />
                         {proposedDate && (
                           <div className="text-xs text-gray-500 mt-1">
-                            {format(new Date(proposedDate), 'EEEE')}
+                            {format(new Date(proposedDate + 'T00:00:00'), 'EEEE')}
                           </div>
                         )}
                       </td>

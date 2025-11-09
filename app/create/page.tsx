@@ -426,55 +426,83 @@ export default function CreatePollPage() {
             </button>
           </div>
 
-          <div className="space-y-4">
-            {timeOptions.map((option, index) => (
-              <div key={index} className="flex items-center gap-4 p-4 border border-gray-200 rounded-lg">
-                {/* Date Column */}
-                <div className="flex-1 min-w-[200px]">
-                  <input
-                    type="date"
-                    value={option.date}
-                    onChange={(e) => updateTimeOption(index, 'date', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                  <div className="text-xs text-gray-500 mt-1">
-                    {option.date && format(new Date(option.date), 'EEE, MMM d')}
-                  </div>
-                </div>
-
-                {/* Time Period Checkboxes */}
-                <div className="flex gap-6">
-                  {timeBuckets.map((bucket) => (
-                    <label key={bucket.value} className="flex items-center gap-2 cursor-pointer">
+          <div className="overflow-x-auto border border-gray-200 rounded-lg">
+            <table className="w-full border-collapse">
+              <thead>
+                <tr className="bg-gray-50">
+                  <th className="text-left p-3 border-r border-gray-200 font-medium w-48">
+                    Date
+                  </th>
+                  <th className="text-center p-3 border-r border-gray-200 font-medium w-32">
+                    🌅 Morning
+                  </th>
+                  <th className="text-center p-3 border-r border-gray-200 font-medium w-32">
+                    ☀️ Afternoon
+                  </th>
+                  <th className="text-center p-3 border-r border-gray-200 font-medium w-32">
+                    🌙 Evening
+                  </th>
+                  <th className="text-center p-3 font-medium w-20">
+                    Action
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {timeOptions.map((option, index) => (
+                  <tr key={index} className="hover:bg-gray-50">
+                    <td className="p-3 border-r border-b border-gray-200">
+                      <input
+                        type="date"
+                        value={option.date}
+                        onChange={(e) => updateTimeOption(index, 'date', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                      {option.date && (
+                        <div className="text-xs text-gray-500 mt-1">
+                          {format(new Date(option.date), 'EEE, MMM d')}
+                        </div>
+                      )}
+                    </td>
+                    <td className="p-3 border-r border-b border-gray-200 text-center">
                       <input
                         type="checkbox"
-                        checked={option.timeBuckets.includes(bucket.value)}
-                        onChange={() => toggleTimeBucket(index, bucket.value)}
+                        checked={option.timeBuckets.includes('morning')}
+                        onChange={() => toggleTimeBucket(index, 'morning')}
                         className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                       />
-                      <span className="text-lg">
-                        {bucket.value === 'morning' && '🌅'}
-                        {bucket.value === 'afternoon' && '☀️'}
-                        {bucket.value === 'evening' && '🌙'}
-                      </span>
-                      <span className="text-sm font-medium">{bucket.label}</span>
-                    </label>
-                  ))}
-                </div>
-
-                {/* Remove Button */}
-                {timeOptions.length > 1 && (
-                  <button
-                    type="button"
-                    onClick={() => removeTimeOption(index)}
-                    className="text-red-600 hover:text-red-800 p-2"
-                    title="Remove this date"
-                  >
-                    ✕
-                  </button>
-                )}
-              </div>
-            ))}
+                    </td>
+                    <td className="p-3 border-r border-b border-gray-200 text-center">
+                      <input
+                        type="checkbox"
+                        checked={option.timeBuckets.includes('afternoon')}
+                        onChange={() => toggleTimeBucket(index, 'afternoon')}
+                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                      />
+                    </td>
+                    <td className="p-3 border-r border-b border-gray-200 text-center">
+                      <input
+                        type="checkbox"
+                        checked={option.timeBuckets.includes('evening')}
+                        onChange={() => toggleTimeBucket(index, 'evening')}
+                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                      />
+                    </td>
+                    <td className="p-3 border-b border-gray-200 text-center">
+                      {timeOptions.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => removeTimeOption(index)}
+                          className="text-red-600 hover:text-red-800 hover:bg-red-50 p-1 rounded"
+                          title="Remove this date"
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
 

@@ -820,58 +820,73 @@ export default function PollPage() {
             </div>
 
             <div>
-              <label htmlFor="proposedDate" className="block text-sm font-medium text-gray-700 mb-2">
-                Proposed Date *
-              </label>
-              <input
-                type="date"
-                id="proposedDate"
-                required
-                value={proposedDate}
-                onChange={(e) => setProposedDate(e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4"
-              />
-            </div>
-
-            <div>
               <label className="block text-sm font-medium text-gray-700 mb-3">
-                Time of Day * (select all that work)
+                Proposed Date and Time Options *
               </label>
-              <div className="grid grid-cols-1 gap-3">
-                {timeBuckets.map((bucket) => (
-                  <label
-                    key={bucket.value}
-                    className="flex items-center p-3 border border-gray-200 rounded-md hover:bg-gray-50 cursor-pointer"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={proposedTimeBuckets.includes(bucket.value)}
-                      onChange={() => toggleProposedTimeBucket(bucket.value)}
-                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                    />
-                    <div className="ml-3 flex-1">
-                      <div className="text-sm font-medium text-gray-900">
-                        {bucket.label}
-                      </div>
-                      <div className="text-xs text-gray-500">
-                        {bucket.description}
-                      </div>
-                    </div>
-                  </label>
-                ))}
+              <div className="overflow-x-auto border border-gray-200 rounded-lg">
+                <table className="w-full border-collapse">
+                  <thead>
+                    <tr className="bg-gray-50">
+                      <th className="text-left p-3 border-r border-gray-200 font-medium w-48">
+                        Date
+                      </th>
+                      <th className="text-center p-3 border-r border-gray-200 font-medium w-32">
+                        🌅 Morning
+                      </th>
+                      <th className="text-center p-3 border-r border-gray-200 font-medium w-32">
+                        ☀️ Afternoon
+                      </th>
+                      <th className="text-center p-3 font-medium w-32">
+                        🌙 Evening
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr className="hover:bg-gray-50">
+                      <td className="p-3 border-r border-b border-gray-200">
+                        <input
+                          type="date"
+                          id="proposedDate"
+                          required
+                          value={proposedDate}
+                          onChange={(e) => setProposedDate(e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                        {proposedDate && (
+                          <div className="text-xs text-gray-500 mt-1">
+                            {format(new Date(proposedDate), 'EEE, MMM d')}
+                          </div>
+                        )}
+                      </td>
+                      <td className="p-3 border-r border-b border-gray-200 text-center">
+                        <input
+                          type="checkbox"
+                          checked={proposedTimeBuckets.includes('morning')}
+                          onChange={() => toggleProposedTimeBucket('morning')}
+                          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                        />
+                      </td>
+                      <td className="p-3 border-r border-b border-gray-200 text-center">
+                        <input
+                          type="checkbox"
+                          checked={proposedTimeBuckets.includes('afternoon')}
+                          onChange={() => toggleProposedTimeBucket('afternoon')}
+                          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                        />
+                      </td>
+                      <td className="p-3 border-b border-gray-200 text-center">
+                        <input
+                          type="checkbox"
+                          checked={proposedTimeBuckets.includes('evening')}
+                          onChange={() => toggleProposedTimeBucket('evening')}
+                          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                        />
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
               </div>
             </div>
-
-            {proposedDate && proposedTimeBuckets.length > 0 && (
-              <div className="p-3 bg-blue-50 border border-blue-200 rounded-md">
-                <p className="text-blue-800 text-sm">
-                  <strong>Proposing:</strong> {format(new Date(proposedDate), 'EEE, MMM d')} - {proposedTimeBuckets.map(bucket => {
-                    const bucketInfo = timeBuckets.find(b => b.value === bucket)
-                    return bucketInfo?.label
-                  }).join(', ')}
-                </p>
-              </div>
-            )}
 
             <div className="flex space-x-3">
               <button

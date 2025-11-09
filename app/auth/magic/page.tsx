@@ -22,6 +22,17 @@ export default function MagicAuth() {
   const [error, setError] = useState('')
   const [isLoadingPolls, setIsLoadingPolls] = useState(false)
   const [isDeleting, setIsDeleting] = useState<string | null>(null)
+  const [showArchive, setShowArchive] = useState(false)
+
+  // Helper function to determine poll status
+  const getPollStatus = (poll: Poll) => {
+    if (poll.deadline && new Date(poll.deadline) < new Date()) return 'expired'
+    return 'active'
+  }
+
+  // Filter polls by status
+  const activePolls = polls.filter(poll => getPollStatus(poll) === 'active')
+  const expiredPolls = polls.filter(poll => getPollStatus(poll) === 'expired')
   
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -71,6 +82,7 @@ export default function MagicAuth() {
         .from('polls')
         .select('*')
         .eq('creator_email', userEmail)
+        .is('deleted_at', null) // Exclude deleted polls from user view
         .order('created_at', { ascending: false })
 
       if (error) throw error
@@ -181,32 +193,76 @@ export default function MagicAuth() {
               </Link>
             </div>
 
+            {/* Active/Archive Toggle */}
+            <div className="flex space-x-1 mb-6">
+              <button
+                onClick={() => setShowArchive(false)}
+                className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                  !showArchive
+                    ? 'bg-green-100 text-green-800 border border-green-200'
+                    : 'text-gray-600 hover:text-gray-800 hover:bg-gray-100'
+                }`}
+              >
+                🟢 Active Polls ({activePolls.length})
+              </button>
+              <button
+                onClick={() => setShowArchive(true)}
+                className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                  showArchive
+                    ? 'bg-yellow-100 text-yellow-800 border border-yellow-200'
+                    : 'text-gray-600 hover:text-gray-800 hover:bg-gray-100'
+                }`}
+              >
+                🟡 Archived Polls ({expiredPolls.length})
+              </button>
+            </div>
+
             {isLoadingPolls ? (
               <div className="text-center py-8">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
                 <p className="text-gray-600">Loading your polls...</p>
               </div>
-            ) : polls.length === 0 ? (
+            ) : (showArchive ? expiredPolls : activePolls).length === 0 ? (
               <div className="text-center py-12 bg-gray-50 rounded-lg">
-                <div className="text-gray-400 text-4xl mb-4">📊</div>
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No polls yet</h3>
-                <p className="text-gray-600 mb-4">Create your first poll to get started</p>
-                <Link
-                  href="/create"
-                  className="inline-block bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 transition-colors"
-                >
-                  Create Your First Poll
-                </Link>
+                <div className="text-gray-400 text-4xl mb-4">
+                  {showArchive ? '📁' : '📊'}
+                </div>
+                <h3 className="text-lg font-medium text-gray-900 mb-2">
+                  {showArchive ? 'No archived polls' : 'No active polls'}
+                </h3>
+                <p className="text-gray-600 mb-4">
+                  {showArchive 
+                    ? 'Polls that have passed their deadline will appear here'
+                    : 'Create your first poll to get started'
+                  }
+                </p>
+                {!showArchive && (
+                  <Link
+                    href="/create"
+                    className="inline-block bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 transition-colors"
+                  >
+                    Create Your First Poll
+                  </Link>
+                )}
               </div>
             ) : (
               <div className="space-y-4">
-                {polls.map((poll) => (
+                {(showArchive ? expiredPolls : activePolls).map((poll) => (
                   <div key={poll.id} className="border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow">
                     <div className="flex justify-between items-start">
                       <div className="flex-1">
-                        <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                          {poll.title}
-                        </h3>
+                        <div className="flex items-center gap-2 mb-2">
+                          <h3 className="text-lg font-semibold text-gray-900">
+                            {poll.title}
+                          </h3>
+                          <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                            getPollStatus(poll) === 'active' 
+                              ? 'bg-green-100 text-green-800'
+                              : 'bg-yellow-100 text-yellow-800'
+                          }`}>
+                            {getPollStatus(poll) === 'active' ? '🟢 Active' : '🟡 Expired'}
+                          </span>
+                        </div>
                         {poll.description && (
                           <p className="text-gray-600 mb-3">{poll.description}</p>
                         )}

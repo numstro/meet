@@ -94,25 +94,62 @@ export default function AdminDashboard() {
   }
 
   const deletePoll = async (pollId: string) => {
-    if (!confirm(`Are you sure you want to delete this poll? This action cannot be undone.`)) {
+    if (!confirm(`Are you sure you want to delete this poll?`)) {
       return
     }
 
     setIsDeleting(pollId)
     try {
-      // Just delete the poll - CASCADE should handle the rest
+      // Soft delete: set deleted_at timestamp
       const { error } = await supabase
         .from('polls')
-        .delete()
+        .update({ deleted_at: new Date().toISOString() })
         .eq('id', pollId)
 
       if (error) throw error
 
-      // Remove from UI immediately
-      setPolls(prevPolls => prevPolls.filter(poll => poll.id !== pollId))
+      // Update poll in UI
+      setPolls(prevPolls => 
+        prevPolls.map(poll => 
+          poll.id === pollId 
+            ? { ...poll, deleted_at: new Date().toISOString() }
+            : poll
+        )
+      )
     } catch (err) {
       console.error('Delete failed:', err)
       alert('Delete failed: ' + (err as Error).message)
+    } finally {
+      setIsDeleting(null)
+    }
+  }
+
+  const restorePoll = async (pollId: string) => {
+    if (!confirm(`Are you sure you want to restore this poll?`)) {
+      return
+    }
+
+    setIsDeleting(pollId)
+    try {
+      // Restore: clear deleted_at timestamp
+      const { error } = await supabase
+        .from('polls')
+        .update({ deleted_at: null })
+        .eq('id', pollId)
+
+      if (error) throw error
+
+      // Update poll in UI
+      setPolls(prevPolls => 
+        prevPolls.map(poll => 
+          poll.id === pollId 
+            ? { ...poll, deleted_at: null }
+            : poll
+        )
+      )
+    } catch (err) {
+      console.error('Restore failed:', err)
+      alert('Restore failed: ' + (err as Error).message)
     } finally {
       setIsDeleting(null)
     }
@@ -381,14 +418,48 @@ export default function AdminDashboard() {
 
       <div className="bg-white rounded-lg shadow">
         <div className="px-6 py-4 border-b border-gray-200">
-          <div className="flex justify-between items-center">
-            <h2 className="text-lg font-semibold text-gray-900">All Polls</h2>
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-lg font-semibold text-gray-900">Poll Management</h2>
             <button
               onClick={loadData}
               disabled={isLoading}
               className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50"
             >
               {isLoading ? 'Refreshing...' : 'Refresh'}
+            </button>
+          </div>
+          
+          {/* Poll Status Tabs */}
+          <div className="flex space-x-1">
+            <button
+              onClick={() => setActiveTab('active')}
+              className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                activeTab === 'active'
+                  ? 'bg-green-100 text-green-800 border border-green-200'
+                  : 'text-gray-600 hover:text-gray-800 hover:bg-gray-100'
+              }`}
+            >
+              🟢 Active ({activePolls.length})
+            </button>
+            <button
+              onClick={() => setActiveTab('expired')}
+              className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                activeTab === 'expired'
+                  ? 'bg-yellow-100 text-yellow-800 border border-yellow-200'
+                  : 'text-gray-600 hover:text-gray-800 hover:bg-gray-100'
+              }`}
+            >
+              🟡 Expired ({expiredPolls.length})
+            </button>
+            <button
+              onClick={() => setActiveTab('deleted')}
+              className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                activeTab === 'deleted'
+                  ? 'bg-red-100 text-red-800 border border-red-200'
+                  : 'text-gray-600 hover:text-gray-800 hover:bg-gray-100'
+              }`}
+            >
+              🔴 Deleted ({deletedPolls.length})
             </button>
           </div>
         </div>
@@ -423,13 +494,26 @@ export default function AdminDashboard() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {polls.map((poll) => (
+                {(activeTab === 'active' ? activePolls : activeTab === 'expired' ? expiredPolls : deletedPolls).map((poll) => (
                   <tr key={poll.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
                         <div>
-                          <div className="text-sm font-medium text-gray-900">
-                            {poll.title}
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-medium text-gray-900">
+                              {poll.title}
+                            </span>
+                            <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                              getPollStatus(poll) === 'active' 
+                                ? 'bg-green-100 text-green-800'
+                                : getPollStatus(poll) === 'expired'
+                                ? 'bg-yellow-100 text-yellow-800'
+                                : 'bg-red-100 text-red-800'
+                            }`}>
+                              {getPollStatus(poll) === 'active' && '🟢 Active'}
+                              {getPollStatus(poll) === 'expired' && '🟡 Expired'}
+                              {getPollStatus(poll) === 'deleted' && '🔴 Deleted'}
+                            </span>
                           </div>
                           {poll.description && (
                             <div className="text-sm text-gray-500 mt-1 max-w-xs truncate">
@@ -460,13 +544,23 @@ export default function AdminDashboard() {
                       >
                         View
                       </a>
-                      <button
-                        onClick={() => deletePoll(poll.id)}
-                        disabled={isDeleting === poll.id}
-                        className="text-red-600 hover:text-red-900 disabled:opacity-50"
-                      >
-                        {isDeleting === poll.id ? 'Deleting...' : 'Delete'}
-                      </button>
+                      {getPollStatus(poll) === 'deleted' ? (
+                        <button
+                          onClick={() => restorePoll(poll.id)}
+                          disabled={isDeleting === poll.id}
+                          className="text-green-600 hover:text-green-900 disabled:opacity-50"
+                        >
+                          {isDeleting === poll.id ? 'Restoring...' : 'Restore'}
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => deletePoll(poll.id)}
+                          disabled={isDeleting === poll.id}
+                          className="text-red-600 hover:text-red-900 disabled:opacity-50"
+                        >
+                          {isDeleting === poll.id ? 'Deleting...' : 'Delete'}
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}

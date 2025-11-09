@@ -134,7 +134,7 @@ export default function PollPage() {
       
       // Sort options by date first, then by time of day (morning, afternoon, evening)
       const timeOrder = { 'morning': 1, 'afternoon': 2, 'evening': 3 }
-      const sortedOptions = (optionsData || []).sort((a, b) => {
+      const sortedOptions = (optionsData || []).sort((a: PollOption, b: PollOption) => {
         // First sort by date
         if (a.option_date !== b.option_date) {
           return a.option_date.localeCompare(b.option_date)

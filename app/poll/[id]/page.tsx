@@ -440,6 +440,38 @@ export default function PollPage() {
         </div>
       </div>
 
+      {/* Share Poll Section */}
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-8">
+        <h3 className="text-blue-900 font-semibold mb-2">📤 Share This Poll</h3>
+        <p className="text-blue-800 text-sm mb-3">Send this link to participants so they can vote:</p>
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={typeof window !== 'undefined' ? window.location.href : ''}
+            readOnly
+            className="flex-1 px-3 py-2 bg-white border border-blue-300 rounded-md font-mono text-sm"
+          />
+          <button
+            type="button"
+            onClick={() => {
+              if (typeof window !== 'undefined') {
+                navigator.clipboard.writeText(window.location.href)
+                // Simple feedback - you could add a toast here
+                const button = event?.target as HTMLButtonElement
+                const originalText = button.textContent
+                button.textContent = '✅ Copied!'
+                setTimeout(() => {
+                  button.textContent = originalText
+                }, 2000)
+              }
+            }}
+            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors whitespace-nowrap"
+          >
+            📋 Copy Link
+          </button>
+        </div>
+      </div>
+
       {/* Doodle-style Grid Results */}
       <div className="bg-white rounded-lg shadow p-6 mb-8">
         <h2 className="text-xl font-semibold mb-4">📊 Voting Results</h2>

@@ -119,6 +119,34 @@ export default function CreatePollPage() {
       return
     }
 
+    // Validate deadline is not in the past
+    if (pollData.deadline) {
+      const deadlineDate = new Date(pollData.deadline)
+      const today = new Date()
+      today.setHours(0, 0, 0, 0) // Reset to start of day for comparison
+      
+      if (deadlineDate < today) {
+        setError('Response deadline cannot be in the past')
+        setIsSubmitting(false)
+        return
+      }
+    }
+
+    // Validate that poll option dates are not in the past
+    const today = new Date()
+    today.setHours(0, 0, 0, 0) // Reset to start of day for comparison
+    
+    const hasPastDates = timeOptions.some(option => {
+      const optionDate = new Date(option.date)
+      return optionDate < today
+    })
+    
+    if (hasPastDates) {
+      setError('Poll option dates cannot be in the past')
+      setIsSubmitting(false)
+      return
+    }
+
     // Check rate limit and get IP address
     let userIpAddress = '127.0.0.1' // fallback
     try {

@@ -662,7 +662,7 @@ export default function PollPage() {
       </div>
 
       {/* Check Previous Votes */}
-      {!hasVoted && !isEditingVotes && (
+      {!hasVoted && !isEditingVotes && poll && getPollStatus(poll) === 'active' && (
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-8">
           <h2 className="text-lg font-semibold mb-4">🔍 Already Voted?</h2>
           <p className="text-blue-800 mb-4">
@@ -688,7 +688,7 @@ export default function PollPage() {
       )}
 
       {/* Voting Form */}
-      {(!hasVoted || isEditingVotes) ? (
+      {(!hasVoted || isEditingVotes) && poll && getPollStatus(poll) === 'active' ? (
         <div className="bg-white rounded-lg shadow p-6">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-xl font-semibold">
@@ -845,6 +845,7 @@ export default function PollPage() {
       )}
 
       {/* Propose New Time */}
+      {poll && getPollStatus(poll) === 'active' && (
       <div className="bg-white rounded-lg shadow p-6 mt-8">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-xl font-semibold">💡 Suggest a New Time</h2>
@@ -967,6 +968,7 @@ export default function PollPage() {
           </p>
         )}
       </div>
+      )}
 
       {/* Participants List */}
       {responses.length > 0 && (

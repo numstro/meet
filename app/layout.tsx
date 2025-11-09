@@ -28,12 +28,6 @@ export default function RootLayout({
                 </div>
                 <div className="flex items-center space-x-4">
                   <a
-                    href="/contact"
-                    className="text-gray-700 hover:text-blue-600 px-3 py-2 rounded-md text-sm font-medium"
-                  >
-                    Contact
-                  </a>
-                  <a
                     href="/create"
                     className="bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-700"
                   >

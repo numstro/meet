@@ -68,7 +68,6 @@ export default function PollPage() {
   const [proposedDate, setProposedDate] = useState('')
   const [proposedTimeBuckets, setProposedTimeBuckets] = useState<('morning' | 'afternoon' | 'evening')[]>([])
   const [proposerName, setProposerName] = useState('')
-  const [proposerEmail, setProposerEmail] = useState('')
   const [isProposing, setIsProposing] = useState(false)
 
   // Delete poll state
@@ -281,7 +280,8 @@ export default function PollPage() {
         option_date: proposedDate,
         start_time: null,
         end_time: null,
-        option_text: bucket
+        option_text: bucket,
+        proposed_by_name: proposerName
       }))
 
       // Filter out options that already exist
@@ -312,7 +312,6 @@ export default function PollPage() {
       setProposedDate('')
       setProposedTimeBuckets([])
       setProposerName('')
-      setProposerEmail('')
       loadPollData() // Refresh data
     } catch (err: any) {
       setError(err.message || 'Failed to propose new time')
@@ -517,6 +516,11 @@ export default function PollPage() {
                             {option.option_text === 'afternoon' && '☀️ Afternoon'}
                             {option.option_text === 'evening' && '🌙 Evening'}
                           </div>
+                          {option.proposed_by_name && (
+                            <div className="text-xs text-gray-500 mt-1">
+                              by {option.proposed_by_name}
+                            </div>
+                          )}
                           {yesCount > 0 && (
                             <div className="bg-blue-500 text-white text-xs rounded-full px-2 py-1 mt-1 inline-block">
                               ✓ {yesCount}
@@ -685,6 +689,11 @@ export default function PollPage() {
                             {option.option_text === 'afternoon' && '☀️ Afternoon'}
                             {option.option_text === 'evening' && '🌙 Evening'}
                           </div>
+                          {option.proposed_by_name && (
+                            <div className="text-xs text-gray-500 mt-1">
+                              by {option.proposed_by_name}
+                            </div>
+                          )}
                         </th>
                       ))}
                     </tr>
@@ -776,35 +785,19 @@ export default function PollPage() {
 
         {showProposeForm ? (
           <form onSubmit={proposeNewTime} className="space-y-4">
-            <div className="grid md:grid-cols-2 gap-4">
-              <div>
-                <label htmlFor="proposerName" className="block text-sm font-medium text-gray-700 mb-1">
-                  Your Name *
-                </label>
-                <input
-                  type="text"
-                  id="proposerName"
-                  required
-                  value={proposerName}
-                  onChange={(e) => setProposerName(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Enter your name"
-                />
-              </div>
-              <div>
-                <label htmlFor="proposerEmail" className="block text-sm font-medium text-gray-700 mb-1">
-                  Your Email *
-                </label>
-                <input
-                  type="email"
-                  id="proposerEmail"
-                  required
-                  value={proposerEmail}
-                  onChange={(e) => setProposerEmail(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="your@email.com"
-                />
-              </div>
+            <div>
+              <label htmlFor="proposerName" className="block text-sm font-medium text-gray-700 mb-1">
+                Your Name *
+              </label>
+              <input
+                type="text"
+                id="proposerName"
+                required
+                value={proposerName}
+                onChange={(e) => setProposerName(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Enter your name"
+              />
             </div>
 
             <div>

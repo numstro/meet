@@ -830,7 +830,7 @@ export default function PollPage() {
             </button>
           </form>
         </div>
-      ) : (
+      ) : poll && getPollStatus(poll) === 'active' ? (
         <div className="bg-green-50 border border-green-200 rounded-lg p-6 text-center">
           <div className="text-green-600 text-4xl mb-2">✅</div>
           <h3 className="text-lg font-semibold text-green-900 mb-2">Thank you for voting!</h3>
@@ -842,7 +842,7 @@ export default function PollPage() {
             ✏️ Edit My Votes
           </button>
         </div>
-      )}
+      ) : null}
 
       {/* Propose New Time */}
       {poll && getPollStatus(poll) === 'active' && (

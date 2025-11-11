@@ -354,7 +354,7 @@ export default function CreatePollPage() {
                 maxLength={200}
                 value={pollData.title}
                 onChange={(e) => setPollData({ ...pollData, title: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 bg-white text-gray-900 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="e.g., Team Coffee Meeting"
               />
               <div className="text-xs text-gray-500 mt-1">{pollData.title.length}/200 characters</div>
@@ -370,7 +370,7 @@ export default function CreatePollPage() {
                 maxLength={500}
                 value={pollData.description}
                 onChange={(e) => setPollData({ ...pollData, description: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 bg-white text-gray-900 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="Optional description or agenda"
               />
               <div className="text-xs text-gray-500 mt-1">{pollData.description.length}/500 characters</div>
@@ -388,7 +388,7 @@ export default function CreatePollPage() {
                   maxLength={100}
                   value={pollData.creatorName}
                   onChange={(e) => setPollData({ ...pollData, creatorName: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 bg-white text-gray-900 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="Your name"
                 />
                 <div className="text-xs text-gray-500 mt-1">{pollData.creatorName.length}/100 characters</div>
@@ -404,7 +404,7 @@ export default function CreatePollPage() {
                   required
                   value={pollData.creatorEmail}
                   onChange={(e) => setPollData({ ...pollData, creatorEmail: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 bg-white text-gray-900 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="your@email.com"
                 />
               </div>
@@ -420,7 +420,7 @@ export default function CreatePollPage() {
                   id="location"
                   value={pollData.location}
                   onChange={(e) => setPollData({ ...pollData, location: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 bg-white text-gray-900 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="e.g., Blue Bottle Coffee"
                 />
               </div>
@@ -434,7 +434,7 @@ export default function CreatePollPage() {
                   id="deadline"
                   value={pollData.deadline}
                   onChange={(e) => setPollData({ ...pollData, deadline: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 bg-white text-gray-900 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
             </div>
@@ -482,7 +482,7 @@ export default function CreatePollPage() {
                         type="date"
                         value={option.date}
                         onChange={(e) => updateTimeOption(index, 'date', e.target.value)}
-                        className="w-full px-2 py-1.5 sm:px-3 sm:py-2 text-sm sm:text-base border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-2 py-1.5 sm:px-3 sm:py-2 bg-white text-gray-900 text-sm sm:text-base border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />
                       {option.date && (
                         <div className="text-xs text-gray-500 mt-1 whitespace-nowrap">

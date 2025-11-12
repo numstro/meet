@@ -730,11 +730,8 @@ export default function PollPage() {
                   <thead>
                     <tr className="bg-gray-50">
                       <th className="text-left p-3 border-r border-gray-200 min-w-[150px] font-medium">
-                      <div className="flex items-center space-x-2">
-                        <span>{new Set(responses.map(r => r.participant_email)).size} participants</span>
-                        <button className="text-blue-600 hover:text-blue-800 text-lg">➕</button>
-                      </div>
-                    </th>
+                        {new Set(responses.map(r => r.participant_email)).size} participants
+                      </th>
                     {options.map((option) => {
                       const optionSummary = summary.find(s => s.option_id === option.id)
                       const yesCount = optionSummary?.yes_count || 0

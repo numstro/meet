@@ -352,7 +352,10 @@ export default function PollPage() {
       setHasVoted(true)
       setIsEditingVotes(false)
       setExistingVoterEmail(participantEmail)
-      loadPollData() // Refresh data
+      // Reload poll data and refresh user's comments
+      await loadPollData()
+      // Also reload user's votes to ensure comments are loaded
+      await checkExistingVotes(participantEmail)
     } catch (err: any) {
       setError(err.message || 'Failed to submit vote')
     } finally {

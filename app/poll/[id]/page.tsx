@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useParams, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { format } from 'date-fns'
@@ -65,6 +65,7 @@ export default function PollPage() {
   const [userComments, setUserComments] = useState<Record<string, string>>({}) // optionId -> comment
   const [expandedComments, setExpandedComments] = useState<Record<string, boolean>>({}) // optionId -> isExpanded
   const [openCommentTooltip, setOpenCommentTooltip] = useState<string | null>(null) // optionId -> track which tooltip is open on mobile
+  const tooltipRef = useRef<HTMLDivElement>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [hasVoted, setHasVoted] = useState(false)
   const [isEditingVotes, setIsEditingVotes] = useState(false)
@@ -839,13 +840,27 @@ export default function PollPage() {
                               
                               {/* Hover tooltip for comments - positioned above on mobile, below on desktop */}
                               {hasComments && (
-                                <div className={`absolute left-1/2 bottom-full mb-2 sm:bottom-auto sm:top-full sm:mt-2 transform -translate-x-1/2 z-50 transition-opacity duration-200 ${
-                                  openCommentTooltip === option.id 
-                                    ? 'opacity-100 pointer-events-auto' 
-                                    : 'opacity-0 group-hover:opacity-100 sm:group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto sm:group-hover:pointer-events-auto'
-                                }`}>
+                                <div 
+                                  ref={tooltipRef}
+                                  className={`absolute left-1/2 bottom-full mb-2 sm:bottom-auto sm:top-full sm:mt-2 transform -translate-x-1/2 z-50 transition-opacity duration-200 ${
+                                    openCommentTooltip === option.id 
+                                      ? 'opacity-100 pointer-events-auto' 
+                                      : 'opacity-0 group-hover:opacity-100 sm:group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto sm:group-hover:pointer-events-auto'
+                                  }`}
+                                  onClick={(e) => e.stopPropagation()}
+                                >
                                   <div className="bg-gray-900 text-white text-xs rounded-lg shadow-lg p-3 min-w-[200px] max-w-[300px]">
-                                    <div className="font-semibold mb-2">💬 Comments:</div>
+                                    <div className="flex justify-between items-center mb-2">
+                                      <div className="font-semibold">💬 Comments:</div>
+                                      <button
+                                        type="button"
+                                        onClick={() => setOpenCommentTooltip(null)}
+                                        className="text-gray-400 hover:text-white text-sm ml-2"
+                                        aria-label="Close comments"
+                                      >
+                                        ✕
+                                      </button>
+                                    </div>
                                     <div className="space-y-2 max-h-48 overflow-y-auto">
                                       {optionComments.map((c, idx) => (
                                         <div key={idx} className="border-t border-gray-700 pt-2 first:border-t-0 first:pt-0">

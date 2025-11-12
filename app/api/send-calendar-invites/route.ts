@@ -235,13 +235,13 @@ export async function POST(request: NextRequest) {
           to: voter.participant_email,
           reply_to: poll.creator_email,
           subject: `📅 Calendar Invite: ${poll.title}`,
-          // Add calendar invite as attachment with explicit Content-Type
-          // Gmail requires both METHOD:REQUEST in the .ics file AND the Content-Type header
+          // Add calendar invite as attachment
+          // Note: Resend auto-detects .ics files, but we can't set custom Content-Type header
+          // The METHOD:REQUEST in the .ics file itself should be sufficient for Gmail
           attachments: [
             {
               filename: 'invite.ics',
-              content: Buffer.from(icsContent).toString('base64'),
-              contentType: 'text/calendar; method=REQUEST; charset=UTF-8'
+              content: Buffer.from(icsContent).toString('base64')
             }
           ],
           html: `

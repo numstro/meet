@@ -549,20 +549,12 @@ export default function PollPage() {
       <div className="mb-8">
         <div className="flex justify-between items-start mb-2">
           <h1 className="text-3xl font-bold text-gray-900">{poll.title}</h1>
-          <div className="flex gap-2">
-            <button
-              onClick={() => setShowCalendarModal(true)}
-              className="text-blue-600 hover:text-blue-800 text-sm font-medium px-3 py-1 rounded border border-blue-200 hover:border-blue-300 transition-colors"
-            >
-              📅 Send Calendar Invites
-            </button>
-            <button
-              onClick={() => setShowDeleteConfirm(true)}
-              className="text-red-600 hover:text-red-800 text-sm font-medium px-3 py-1 rounded border border-red-200 hover:border-red-300 transition-colors"
-            >
-              🗑️ Delete Poll
-            </button>
-          </div>
+          <button
+            onClick={() => setShowDeleteConfirm(true)}
+            className="text-red-600 hover:text-red-800 text-sm font-medium px-3 py-1 rounded border border-red-200 hover:border-red-300 transition-colors"
+          >
+            🗑️ Delete Poll
+          </button>
         </div>
         {poll.description && (
           <p className="text-gray-600 mb-4">{poll.description}</p>
@@ -640,7 +632,15 @@ export default function PollPage() {
 
       {/* Doodle-style Grid Results */}
       <div className="bg-white rounded-lg shadow p-6 mb-8">
-        <h2 className="text-xl font-semibold mb-4">📊 Voting Results</h2>
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-xl font-semibold">📊 Voting Results</h2>
+          <button
+            onClick={() => setShowCalendarModal(true)}
+            className="text-blue-600 hover:text-blue-800 text-sm font-medium px-3 py-1 rounded border border-blue-200 hover:border-blue-300 transition-colors"
+          >
+            📅 Send Calendar Invites
+          </button>
+        </div>
         
         {summary.length === 0 ? (
           <p className="text-gray-500">No responses yet. Be the first to vote!</p>
@@ -1124,13 +1124,29 @@ export default function PollPage() {
                   Select Date & Time:
                 </label>
                 <div className="space-y-2 max-h-64 overflow-y-auto">
-                  {options.map((option) => {
+                  {(() => {
+                    // Sort options: best options first, then by date
+                    const bestOptions = getBestOptions()
+                    const bestOptionIds = new Set(bestOptions.map(b => b.option_id))
+                    
+                    const sortedOptions = [...options].sort((a, b) => {
+                      const aIsBest = bestOptionIds.has(a.id)
+                      const bIsBest = bestOptionIds.has(b.id)
+                      
+                      // Best options first
+                      if (aIsBest && !bIsBest) return -1
+                      if (!aIsBest && bIsBest) return 1
+                      
+                      // Then sort by date
+                      return new Date(a.option_date).getTime() - new Date(b.option_date).getTime()
+                    })
+                    
+                    return sortedOptions.map((option) => {
                     const optionSummary = summary.find(s => s.option_id === option.id)
                     const yesCount = optionSummary?.yes_count || 0
                     const maybeCount = optionSummary?.maybe_count || 0
                     const totalVoters = yesCount + maybeCount
-                    const bestOptions = getBestOptions()
-                    const isTopChoice = bestOptions.some(best => best.option_id === option.id)
+                    const isTopChoice = bestOptionIds.has(option.id)
                     
                     const dateStr = format(new Date(option.option_date + 'T00:00:00'), 'EEEE, MMMM d, yyyy')
                     const timeLabel = option.option_text === 'morning' ? '🌅 Morning (8 AM - 12 PM)' :
@@ -1147,7 +1163,9 @@ export default function PollPage() {
                           setCustomEndTime(defaults.end)
                         }}
                         className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
-                          selectedOptionId === option.id
+                          selectedOptionId === option.id && isTopChoice
+                            ? 'border-red-500 bg-red-100'
+                            : selectedOptionId === option.id
                             ? 'border-blue-500 bg-blue-50'
                             : isTopChoice
                             ? 'border-red-400 bg-red-50'
@@ -1158,10 +1176,12 @@ export default function PollPage() {
                           <div className="flex-1">
                             <div className="flex items-center gap-2 mb-1">
                               {selectedOptionId === option.id && (
-                                <span className="text-blue-600">✓</span>
+                                <span className={isTopChoice ? 'text-red-600 font-bold' : 'text-blue-600'}>✓</span>
                               )}
-                              {isTopChoice && !selectedOptionId && (
-                                <span className="text-red-600 text-xs font-semibold">BEST OPTION</span>
+                              {isTopChoice && (
+                                <span className={`text-xs font-semibold ${selectedOptionId === option.id ? 'text-red-700' : 'text-red-600'}`}>
+                                  BEST OPTION
+                                </span>
                               )}
                               <span className="font-semibold text-gray-900">{dateStr}</span>
                             </div>
@@ -1177,7 +1197,7 @@ export default function PollPage() {
                         </div>
                       </div>
                     )
-                  })}
+                  })})()}
                 </div>
               </div>
 

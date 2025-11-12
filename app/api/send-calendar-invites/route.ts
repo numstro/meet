@@ -109,12 +109,13 @@ export async function POST(request: NextRequest) {
     const [startHour, startMin] = startTime.split(':').map(Number)
     const [endHour, endMin] = endTime.split(':').map(Number)
     
-    const eventDate = new Date(pollOption.option_date)
-    const start = new Date(eventDate)
-    start.setHours(startHour, startMin, 0, 0)
+    // Create dates in local timezone
+    // Use the date string and construct a proper date-time string
+    const dateStrRaw = pollOption.option_date // Format: YYYY-MM-DD
     
-    const end = new Date(eventDate)
-    end.setHours(endHour, endMin, 0, 0)
+    // Create date objects in local timezone (will be converted to UTC by ical-generator)
+    const start = new Date(`${dateStrRaw}T${String(startHour).padStart(2, '0')}:${String(startMin).padStart(2, '0')}:00`)
+    const end = new Date(`${dateStrRaw}T${String(endHour).padStart(2, '0')}:${String(endMin).padStart(2, '0')}:00`)
     
     // Format date/time for display
     const dateStr = new Date(pollOption.option_date).toLocaleDateString('en-US', {
@@ -134,12 +135,18 @@ export async function POST(request: NextRequest) {
     }
     const timeStr = `${formatTime(start)} - ${formatTime(end)}`
 
-    // Create calendar event
-    const calendar = ical({ name: poll.title })
+    // Create calendar event with explicit timezone
+    // Use America/Los_Angeles as default (adjust based on your needs)
+    // This ensures times are interpreted correctly by Gmail/calendar apps
+    const calendar = ical({ 
+      name: poll.title,
+      timezone: 'America/Los_Angeles'
+    })
     
     const event = calendar.createEvent({
       start,
       end,
+      timezone: 'America/Los_Angeles', // Explicit timezone for the event
       summary: poll.title,
       description: poll.description || '',
       location: poll.location || '',

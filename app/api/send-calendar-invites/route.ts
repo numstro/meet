@@ -222,7 +222,12 @@ export async function POST(request: NextRequest) {
     })
     
     // Build event data - match Google Calendar's format exactly
+    // Use stable UID for updates/cancellations
+    const eventUid = `${pollId}-${optionId}@${request.nextUrl.hostname.replace('www.', '')}`
+    
     const eventData: any = {
+      id: eventUid, // Stable UID for updates
+      stamp: new Date(), // DTSTAMP (will be UTC with Z)
       start,
       end,
       timezone: validTimezone, // Use TZID format like Google
@@ -237,11 +242,13 @@ export async function POST(request: NextRequest) {
         name: v.participant_name || v.participant_email,
         email: v.participant_email,
         rsvp: true,
-        status: ICalAttendeeStatus.NEEDSACTION,
+        role: 'REQ-PARTICIPANT',
+        partstat: 'NEEDS-ACTION',
         type: ICalAttendeeType.INDIVIDUAL
       })),
       status: ICalEventStatus.CONFIRMED,
-      busystatus: ICalEventBusyStatus.BUSY
+      transparency: 'OPAQUE', // TRANSP:OPAQUE
+      sequence: 0
     }
     
     // Only include description if it has a value
@@ -254,6 +261,9 @@ export async function POST(request: NextRequest) {
     // Generate ICS content - let ical-generator handle everything
     let icsContent = calendar.toString()
     
+    // Normalize to CRLF (RFC 5545 requirement)
+    icsContent = icsContent.replace(/\r?\n/g, '\r\n')
+    
     // Fix issues to match Google Calendar's format:
     // 1. Remove non-standard properties (Google doesn't use these)
     icsContent = icsContent.replace(/^TIMEZONE-ID:.*$/gm, '')
@@ -262,6 +272,9 @@ export async function POST(request: NextRequest) {
     // 2. Remove quotes from ORGANIZER/ATTENDEE CN values (Google doesn't use quotes)
     icsContent = icsContent.replace(/ORGANIZER;CN="([^"]+)":/g, 'ORGANIZER;CN=$1:')
     icsContent = icsContent.replace(/CN="([^"]+)":MAILTO:/g, 'CN=$1:MAILTO:')
+    
+    // 3. Ensure DTSTAMP ends with Z (UTC) - critical for Gmail
+    icsContent = icsContent.replace(/^DTSTAMP:(\d{8}T\d{6})(?!Z)/m, 'DTSTAMP:$1Z')
     
     // 3. Ensure VTIMEZONE block is present (Google Calendar includes this, and TZID format requires it)
     // Match Google Calendar's exact VTIMEZONE format
@@ -368,10 +381,11 @@ END:VTIMEZONE`,
     }
     
     // 4. Add optional properties that Google includes (helpful for Gmail recognition)
+    // Note: CREATED, LAST-MODIFIED, TRANSP are now set in eventData above, but add if missing
     const now = new Date()
     const nowStr = now.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z'
     
-    // Add CREATED if missing
+    // Add CREATED if missing (should already be there from eventData.stamp)
     if (!icsContent.includes('CREATED:')) {
       icsContent = icsContent.replace(/(DTSTAMP:[^\r\n]+\r\n)/, `$1CREATED:${nowStr}\r\n`)
     }
@@ -381,10 +395,7 @@ END:VTIMEZONE`,
       icsContent = icsContent.replace(/(CREATED:[^\r\n]+\r\n)/, `$1LAST-MODIFIED:${nowStr}\r\n`)
     }
     
-    // Add TRANSP:OPAQUE if missing
-    if (!icsContent.includes('TRANSP:')) {
-      icsContent = icsContent.replace(/(STATUS:CONFIRMED\r\n)/, `$1TRANSP:OPAQUE\r\n`)
-    }
+    // TRANSP:OPAQUE should already be set in eventData.transparency above
     
     // Clean up any extra blank lines
     icsContent = icsContent.replace(/\r\n\r\n\r\n+/g, '\r\n\r\n')
@@ -397,7 +408,10 @@ END:VTIMEZONE`,
       )
     }
 
-    // Initialize Resend - standard approach
+    // Initialize Resend - following ChatGPT's recommendations
+    // Note: Resend with Buffer attachment may not show Gmail inline cards, but download works
+    // For Gmail inline Accept/Decline buttons, we'd need Nodemailer with Content-Type header
+    // (Content-Type: text/calendar; method=REQUEST; charset=UTF-8) which Resend can't set
     const { Resend } = await import('resend')
     const resend = new Resend(process.env.RESEND_API_KEY)
 
@@ -461,7 +475,7 @@ END:VTIMEZONE`,
           attachments: [
             {
               filename: 'invite.ics',
-              content: icsContent
+              content: Buffer.from(icsContent, 'utf8') // Buffer -> base64 encoding, preserves CRLF
             }
           ]
         })

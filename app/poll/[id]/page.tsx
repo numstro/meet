@@ -723,8 +723,8 @@ export default function PollPage() {
             </div>
             
             {/* Grid Table */}
-              <div className="overflow-x-auto border border-gray-200 rounded-lg" style={{ overscrollBehavior: 'contain' }}>
-                <table className="w-full border-collapse" style={{ minWidth: 'fit-content' }}>
+              <div className="overflow-x-auto border border-gray-200 rounded-lg" style={{ overscrollBehavior: 'contain', maxHeight: 'none' }}>
+                <table className="border-collapse" style={{ width: '100%', tableLayout: 'auto' }}>
                   <thead>
                     <tr className="bg-gray-50">
                       <th className="text-left p-3 border-r border-gray-200 min-w-[150px] font-medium">
@@ -740,30 +740,28 @@ export default function PollPage() {
                       const isTopChoice = bestOptions.some(best => best.option_id === option.id)
                       
                       return (
-                        <th key={option.id} className={`text-center p-1.5 sm:p-2 border-r border-gray-200 min-w-[90px] ${isTopChoice ? 'bg-red-100 border-2 border-red-400' : ''}`}>
-                          <div className="flex items-center justify-center gap-1 mb-0.5">
-                            <span className="text-xs text-gray-500">
-                              {format(new Date(option.option_date + 'T00:00:00'), 'MMM')}
-                            </span>
-                            <span className="font-bold text-base sm:text-lg">
-                              {format(new Date(option.option_date + 'T00:00:00'), 'd')}
-                            </span>
-                            <span className="text-xs text-gray-500 uppercase">
-                              {format(new Date(option.option_date + 'T00:00:00'), 'EEE')}
-                            </span>
+                        <th key={option.id} className={`text-center p-2 border-r border-gray-200 min-w-[90px] ${isTopChoice ? 'bg-red-100 border-2 border-red-400' : ''}`}>
+                          <div className="text-xs text-gray-500 mb-1">
+                            {format(new Date(option.option_date + 'T00:00:00'), 'MMM')}
                           </div>
-                          <div className="text-xs font-medium text-gray-700 mb-0.5">
+                          <div className="font-bold text-lg">
+                            {format(new Date(option.option_date + 'T00:00:00'), 'd')}
+                          </div>
+                          <div className="text-xs text-gray-500 uppercase mb-1">
+                            {format(new Date(option.option_date + 'T00:00:00'), 'EEE')}
+                          </div>
+                          <div className="text-xs font-medium text-gray-700">
                             {option.option_text === 'morning' && '🌅 Morning'}
                             {option.option_text === 'afternoon' && '☀️ Afternoon'}
                             {option.option_text === 'evening' && '🌙 Evening'}
                           </div>
                           {option.proposed_by_name && (
-                            <div className="text-xs text-gray-500 mb-0.5">
+                            <div className="text-xs text-gray-500 mt-1">
                               by {option.proposed_by_name}
                             </div>
                           )}
                           {yesCount > 0 && (
-                            <div className="bg-blue-500 text-white text-xs rounded-full px-1.5 py-0.5 inline-block">
+                            <div className="bg-blue-500 text-white text-xs rounded-full px-2 py-1 mt-1 inline-block">
                               ✓ {yesCount}
                             </div>
                           )}
@@ -778,15 +776,15 @@ export default function PollPage() {
                     
                     return (
                       <tr key={email} className="hover:bg-gray-50">
-                        <td className="p-2 sm:p-3 border-r border-b border-gray-200">
-                          <div className="flex items-center space-x-1.5 sm:space-x-2">
-                            <div className="w-6 h-6 sm:w-8 sm:h-8 bg-gray-300 rounded-full flex items-center justify-center text-xs sm:text-sm flex-shrink-0">
+                        <td className="p-3 border-r border-b border-gray-200">
+                          <div className="flex items-center space-x-2">
+                            <div className="w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center text-sm">
                               👤
                             </div>
-                            <div className="min-w-0 flex-1">
-                              <div className="font-medium truncate text-sm sm:text-base">{participant?.participant_name}</div>
+                            <div className="min-w-0">
+                              <div className="font-medium truncate">{participant?.participant_name}</div>
                             </div>
-                            <button className="text-blue-600 hover:text-blue-800 text-xs sm:text-sm flex-shrink-0">✏️</button>
+                            <button className="text-blue-600 hover:text-blue-800 text-sm">✏️</button>
                           </div>
                         </td>
                         {options.map((option) => {
@@ -810,10 +808,10 @@ export default function PollPage() {
                           const hasComments = optionComments.length > 0
                           
                           return (
-                            <td key={option.id} className={`text-center p-1.5 sm:p-2 border-r border-b border-gray-200 ${isTopChoice ? 'bg-red-50' : ''} relative group`}>
+                            <td key={option.id} className={`text-center p-2 border-r border-b border-gray-200 ${isTopChoice ? 'bg-red-50' : ''} relative group`}>
                               <div className="flex items-center justify-center gap-1">
                                 {response && (
-                                  <div className={`w-6 h-6 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-xs sm:text-sm font-bold ${
+                                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
                                     response.response === 'yes' 
                                       ? 'bg-green-500 text-white' 
                                       : response.response === 'maybe'
@@ -873,6 +871,7 @@ export default function PollPage() {
             📅 Send Calendar Invites
           </button>
         </div>
+        )}
       </div>
 
       {/* Check Previous Votes */}

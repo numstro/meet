@@ -276,6 +276,11 @@ export async function POST(request: NextRequest) {
     // 3. Ensure DTSTAMP ends with Z (UTC) - critical for Gmail
     icsContent = icsContent.replace(/^DTSTAMP:(\d{8}T\d{6})(?!Z)/m, 'DTSTAMP:$1Z')
     
+    // 4. CRITICAL FIX: Gmail's parser fails on folded UID/ATTENDEE/ORGANIZER lines
+    // Flatten soft line breaks (CRLF + space continuation) in these fields
+    // This regex removes continuation lines that start with a space after CRLF
+    icsContent = icsContent.replace(/\r\n ([A-Z0-9\-@=:";]+)/g, '$1')
+    
     // 3. Ensure VTIMEZONE block is present (Google Calendar includes this, and TZID format requires it)
     // Match Google Calendar's exact VTIMEZONE format
     if (!icsContent.includes('BEGIN:VTIMEZONE')) {
@@ -495,8 +500,11 @@ END:VTIMEZONE`,
               filename: 'invite.ics',
               content: icsBuffer,
               contentType: 'text/calendar; method=REQUEST; charset=UTF-8', // Critical for Gmail inline cards
-              // Optional: helps some clients recognize it as a calendar message
-              // headers: { 'Content-Class': 'urn:content-classes:calendarmessage' }
+              contentDisposition: 'inline', // Gmail needs inline, not attachment
+              headers: {
+                'Content-Class': 'urn:content-classes:calendarmessage',
+                'Content-Type': 'text/calendar; method=REQUEST; charset=UTF-8' // Override any auto-added parameters
+              }
             }
           ]
         })

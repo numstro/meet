@@ -32,7 +32,7 @@ function getTimeFromBucket(date: string, timeBucket: string): { start: Date; end
 
 export async function POST(request: NextRequest) {
   try {
-    const { pollId, optionId, creatorEmail, startTime, endTime } = await request.json()
+    const { pollId, optionId, creatorEmail, startTime, endTime, timezone } = await request.json()
     
     if (!pollId || !optionId || !creatorEmail || !startTime || !endTime) {
       return NextResponse.json(
@@ -40,6 +40,12 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       )
     }
+
+    // Use provided timezone or fallback to America/Los_Angeles
+    // Validate timezone format (IANA timezone identifier)
+    const validTimezone = timezone && typeof timezone === 'string' && timezone.length > 0
+      ? timezone
+      : 'America/Los_Angeles'
 
     // Verify creator email matches poll creator
     const { data: poll, error: pollError } = await supabase
@@ -136,17 +142,16 @@ export async function POST(request: NextRequest) {
     const timeStr = `${formatTime(start)} - ${formatTime(end)}`
 
     // Create calendar event with explicit timezone
-    // Use America/Los_Angeles as default (adjust based on your needs)
-    // This ensures times are interpreted correctly by Gmail/calendar apps
+    // Use the user's detected timezone to ensure times are interpreted correctly by Gmail/calendar apps
     const calendar = ical({ 
       name: poll.title,
-      timezone: 'America/Los_Angeles'
+      timezone: validTimezone
     })
     
     const event = calendar.createEvent({
       start,
       end,
-      timezone: 'America/Los_Angeles', // Explicit timezone for the event
+      timezone: validTimezone, // Use detected timezone from user's browser
       summary: poll.title,
       description: poll.description || '',
       location: poll.location || '',

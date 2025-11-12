@@ -456,6 +456,9 @@ export default function PollPage() {
     const startTime = (customStartTime && customStartTime.trim()) ? customStartTime : defaults.start
     const endTime = (customEndTime && customEndTime.trim()) ? customEndTime : defaults.end
 
+    // Detect user's timezone from browser
+    const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone
+
     setIsSendingInvites(true)
     setInviteResult(null)
     setError('')
@@ -470,7 +473,8 @@ export default function PollPage() {
           creatorEmail: creatorEmailForInvite.toLowerCase(),
           // Always send times (will be defaults if custom times not provided)
           startTime: startTime,
-          endTime: endTime
+          endTime: endTime,
+          timezone: userTimezone
         })
       })
 

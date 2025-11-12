@@ -306,9 +306,50 @@ export async function POST(request: NextRequest) {
     
     // 3. Ensure VTIMEZONE block is present (critical for Gmail to parse TZID)
     if (!icsContent.includes('BEGIN:VTIMEZONE')) {
-      const vtimezone = getVtimezoneComponent(validTimezone)
-      const vtimezoneString = String(vtimezone).replace(/\r\n/g, '\n').replace(/\n/g, '\r\n')
-      icsContent = icsContent.replace(/(METHOD:REQUEST[\r\n]+)/, `$1${vtimezoneString}\r\n`)
+      try {
+        // Check if getVtimezoneComponent is available
+        if (typeof getVtimezoneComponent !== 'function') {
+          console.error('[ICS Generation] ERROR: getVtimezoneComponent is not a function')
+          throw new Error('VTIMEZONE generator not available')
+        }
+        
+        const vtimezone = getVtimezoneComponent(validTimezone)
+        console.log('[ICS Generation] getVtimezoneComponent result type:', typeof vtimezone, 'is null?', vtimezone === null)
+        
+        if (!vtimezone || vtimezone === null || vtimezone === undefined) {
+          console.error('[ICS Generation] ERROR: getVtimezoneComponent returned null/undefined for timezone:', validTimezone)
+          throw new Error('VTIMEZONE generation returned null')
+        }
+        
+        const vtimezoneString = String(vtimezone)
+        if (vtimezoneString === 'null' || vtimezoneString === 'undefined' || !vtimezoneString.includes('BEGIN:VTIMEZONE')) {
+          console.error('[ICS Generation] ERROR: Generated VTIMEZONE block is invalid. String value:', vtimezoneString.substring(0, 100))
+          throw new Error('VTIMEZONE block validation failed')
+        }
+        
+        const normalizedVtimezone = vtimezoneString.replace(/\r\n/g, '\n').replace(/\n/g, '\r\n')
+        const beforeReplace = icsContent
+        icsContent = icsContent.replace(/(METHOD:REQUEST[\r\n]+)/, `$1${normalizedVtimezone}\r\n`)
+        
+        if (icsContent === beforeReplace) {
+          console.error('[ICS Generation] ERROR: Regex replacement failed - VTIMEZONE not inserted')
+          throw new Error('VTIMEZONE insertion failed')
+        }
+        
+        if (!icsContent.includes('BEGIN:VTIMEZONE')) {
+          console.error('[ICS Generation] ERROR: VTIMEZONE block not found after insertion')
+          throw new Error('VTIMEZONE verification failed')
+        }
+        
+        console.log('[ICS Generation] Successfully injected VTIMEZONE block')
+      } catch (error: any) {
+        console.error('[ICS Generation] CRITICAL: Failed to inject VTIMEZONE block:', error.message || error)
+        // Without VTIMEZONE, Gmail can't parse TZID - this is a fatal error
+        return NextResponse.json(
+          { error: 'Failed to generate timezone information for calendar invite. Please contact support.' },
+          { status: 500 }
+        )
+      }
     }
     
     // 4. Fix ORGANIZER/ATTENDEE format (remove quotes to match Google)

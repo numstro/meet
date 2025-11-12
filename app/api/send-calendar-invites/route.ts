@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
 import { Resend } from 'resend'
-import ical from 'ical-generator'
+import ical, { ICalCalendarMethod } from 'ical-generator'
 
 export const dynamic = 'force-dynamic'
 
@@ -160,7 +160,7 @@ export async function POST(request: NextRequest) {
         product: 'Meet',
         language: 'EN'
       },
-      method: 'REQUEST' // This makes it a proper calendar invitation (METHOD:REQUEST)
+      method: ICalCalendarMethod.REQUEST // This makes it a proper calendar invitation (METHOD:REQUEST)
     })
     
     const event = calendar.createEvent({

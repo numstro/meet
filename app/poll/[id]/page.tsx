@@ -784,8 +784,8 @@ export default function PollPage() {
                             <div className="w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center text-sm">
                               👤
                             </div>
-                            <div className="min-w-0 flex-1">
-                              <div className="font-medium truncate">{displayName}</div>
+                            <div className="min-w-0 flex-1" style={{ lineHeight: 'normal' }}>
+                              <div className="font-medium truncate" style={{ lineHeight: '1.5' }}>{displayName}</div>
                             </div>
                           </div>
                         </td>

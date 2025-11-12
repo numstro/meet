@@ -123,6 +123,15 @@ export async function POST(request: NextRequest) {
     const start = new Date(`${dateStrRaw}T${String(startHour).padStart(2, '0')}:${String(startMin).padStart(2, '0')}:00`)
     const end = new Date(`${dateStrRaw}T${String(endHour).padStart(2, '0')}:${String(endMin).padStart(2, '0')}:00`)
     
+    // Check if event is in the past
+    const now = new Date()
+    if (start < now) {
+      return NextResponse.json(
+        { error: 'Cannot send calendar invites for events in the past' },
+        { status: 400 }
+      )
+    }
+    
     // Format date/time for display
     const dateStr = new Date(pollOption.option_date).toLocaleDateString('en-US', {
       weekday: 'long',
@@ -145,7 +154,13 @@ export async function POST(request: NextRequest) {
     // Use the user's detected timezone to ensure times are interpreted correctly by Gmail/calendar apps
     const calendar = ical({ 
       name: poll.title,
-      timezone: validTimezone
+      timezone: validTimezone,
+      prodId: {
+        company: 'Numstro',
+        product: 'Meet',
+        language: 'EN'
+      },
+      method: 'REQUEST' // This makes it a proper calendar invitation (METHOD:REQUEST)
     })
     
     const event = calendar.createEvent({
@@ -163,8 +178,12 @@ export async function POST(request: NextRequest) {
       attendees: uniqueVoters.map(v => ({
         name: v.participant_name || v.participant_email,
         email: v.participant_email,
-        rsvp: true
-      }))
+        rsvp: true,
+        status: 'NEEDS-ACTION',
+        type: 'INDIVIDUAL'
+      })),
+      status: 'CONFIRMED',
+      busystatus: 'BUSY'
     })
 
     // Generate .ics file content

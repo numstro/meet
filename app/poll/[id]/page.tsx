@@ -636,15 +636,7 @@ export default function PollPage() {
 
       {/* Doodle-style Grid Results */}
       <div className="bg-white rounded-lg shadow p-6 mb-8">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-semibold">📊 Voting Results</h2>
-          <button
-            onClick={() => setShowCalendarModal(true)}
-            className="text-blue-600 hover:text-blue-800 text-sm font-medium px-3 py-1 rounded border border-blue-200 hover:border-blue-300 transition-colors"
-          >
-            📅 Send Calendar Invites
-          </button>
-        </div>
+        <h2 className="text-xl font-semibold mb-4">📊 Voting Results</h2>
         
         {summary.length === 0 ? (
           <p className="text-gray-500">No responses yet. Be the first to vote!</p>
@@ -755,6 +747,16 @@ export default function PollPage() {
             </div>
           </div>
         )}
+        
+        {/* Send Calendar Invites Button - Full Width, Centered */}
+        <div className="mt-6">
+          <button
+            onClick={() => setShowCalendarModal(true)}
+            className="w-full px-4 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors font-medium"
+          >
+            📅 Send Calendar Invites
+          </button>
+        </div>
       </div>
 
       {/* Check Previous Votes */}

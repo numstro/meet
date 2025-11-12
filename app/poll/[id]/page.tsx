@@ -1020,9 +1020,9 @@ export default function PollPage() {
                                     {hasComment ? '💬 Edit comment' : '💬 Add comment'}
                                   </button>
                                   
-                                  {/* Popover for comment */}
+                                  {/* Popover for comment - positioned above if near bottom of viewport */}
                                   {isCommentExpanded && (
-                                    <div className="absolute left-1/2 top-full mt-2 transform -translate-x-1/2 z-50 w-64">
+                                    <div className="absolute left-1/2 bottom-full mb-2 transform -translate-x-1/2 z-50 w-64">
                                       <div className="bg-white border border-gray-300 rounded-lg shadow-lg p-3">
                                         <div className="flex justify-between items-center mb-2">
                                           <label className="text-xs font-medium text-gray-700">Add a comment (optional)</label>
@@ -1054,7 +1054,7 @@ export default function PollPage() {
                                             Done
                                           </button>
                                         </div>
-                                        <div className="absolute -top-1 left-1/2 transform -translate-x-1/2 w-2 h-2 bg-white border-l border-t border-gray-300 rotate-45"></div>
+                                        <div className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-2 h-2 bg-white border-r border-b border-gray-300 rotate-45"></div>
                                       </div>
                                     </div>
                                   )}

@@ -826,9 +826,9 @@ export default function PollPage() {
                                 )}
                               </div>
                               
-                              {/* Hover tooltip for comments */}
+                              {/* Hover tooltip for comments - positioned above on mobile, below on desktop */}
                               {hasComments && (
-                                <div className="absolute left-1/2 top-full mt-2 transform -translate-x-1/2 z-50 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none group-hover:pointer-events-auto">
+                                <div className="absolute left-1/2 bottom-full mb-2 sm:bottom-auto sm:top-full sm:mt-2 transform -translate-x-1/2 z-50 opacity-0 group-hover:opacity-100 sm:group-hover:opacity-100 transition-opacity duration-200 pointer-events-none group-hover:pointer-events-auto sm:group-hover:pointer-events-auto">
                                   <div className="bg-gray-900 text-white text-xs rounded-lg shadow-lg p-3 min-w-[200px] max-w-[300px]">
                                     <div className="font-semibold mb-2">💬 Comments:</div>
                                     <div className="space-y-2 max-h-48 overflow-y-auto">
@@ -841,7 +841,7 @@ export default function PollPage() {
                                         </div>
                                       ))}
                                     </div>
-                                    <div className="absolute -top-1 left-1/2 transform -translate-x-1/2 w-2 h-2 bg-gray-900 rotate-45"></div>
+                                    <div className="absolute -bottom-1 sm:-bottom-1 sm:-top-1 left-1/2 transform -translate-x-1/2 w-2 h-2 bg-gray-900 rotate-45"></div>
                                   </div>
                                 </div>
                               )}

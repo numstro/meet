@@ -114,6 +114,8 @@ export async function POST(request: NextRequest) {
     const uniqueVoters = Array.from(
       new Map(typedVotes.map(v => [v.participant_email, v])).values()
     )
+    
+    console.log(`[Calendar Invites] Found ${votes.length} vote(s) from ${uniqueVoters.length} unique voter(s):`, uniqueVoters.map(v => `${v.participant_name || v.participant_email} (${v.participant_email})`))
 
     // Generate calendar event times
     const timeBucket = pollOption.option_text || 'morning'
@@ -312,26 +314,44 @@ export async function POST(request: NextRequest) {
     // Ensure VTIMEZONE block is present (critical for Gmail)
     // If it's missing, manually inject it using getVtimezoneComponent
     if (!icsContent.includes('BEGIN:VTIMEZONE')) {
-      console.error('WARNING: VTIMEZONE block is missing from ICS file! Manually injecting...')
+      console.error('[ICS Generation] WARNING: VTIMEZONE block is missing! Manually injecting...')
       try {
         // Generate VTIMEZONE block manually
         const vtimezoneBlock = getVtimezoneComponent(validTimezone)
+        console.log('[ICS Generation] Generated VTIMEZONE block for timezone:', validTimezone)
+        
+        // getVtimezoneComponent returns a string, not an object
+        // Convert to string and ensure CRLF line endings
+        let vtimezoneString = typeof vtimezoneBlock === 'string' 
+          ? vtimezoneBlock 
+          : vtimezoneBlock.toString()
+        
+        // Ensure CRLF line endings
+        vtimezoneString = vtimezoneString.replace(/\r\n/g, '\n').replace(/\n/g, '\r\n')
+        
         // Insert VTIMEZONE block after METHOD:REQUEST and before BEGIN:VEVENT
         // Format: METHOD:REQUEST\r\n[VTIMEZONE block]\r\nBEGIN:VEVENT
-        if (vtimezoneBlock) {
-          const vtimezoneString = vtimezoneBlock.toString().replace(/\n/g, '\r\n')
-          // Insert after METHOD:REQUEST line
+        if (vtimezoneString && vtimezoneString.includes('BEGIN:VTIMEZONE')) {
           icsContent = icsContent.replace(
             /(METHOD:REQUEST\r\n)/,
             `$1${vtimezoneString}\r\n`
           )
-          console.log('Successfully injected VTIMEZONE block')
+          console.log('[ICS Generation] Successfully injected VTIMEZONE block')
+          
+          // Verify it was inserted
+          if (!icsContent.includes('BEGIN:VTIMEZONE')) {
+            console.error('[ICS Generation] ERROR: VTIMEZONE block injection failed - block not found after insertion!')
+          }
+        } else {
+          console.error('[ICS Generation] ERROR: Generated VTIMEZONE block is invalid:', vtimezoneString?.substring(0, 100))
         }
       } catch (error) {
-        console.error('Failed to inject VTIMEZONE block:', error)
+        console.error('[ICS Generation] Failed to inject VTIMEZONE block:', error)
         // If we can't inject VTIMEZONE, Gmail won't be able to parse TZID references
         // This is a critical error - the ICS file won't work without it
       }
+    } else {
+      console.log('[ICS Generation] VTIMEZONE block is present in ICS file')
     }
     
     // Fix ORGANIZER format: Remove quotes around CN value (Google Calendar doesn't use quotes)
@@ -522,8 +542,11 @@ export async function POST(request: NextRequest) {
     `
 
     // Send emails with rate limiting
+    console.log(`[Calendar Invites] Preparing to send ${uniqueVoters.length} email(s) to:`, uniqueVoters.map(v => v.participant_email))
+    
     for (let i = 0; i < uniqueVoters.length; i++) {
       const voter = uniqueVoters[i]
+      console.log(`[Calendar Invites] Sending email ${i + 1}/${uniqueVoters.length} to ${voter.participant_email}`)
       try {
         await transporter.sendMail({
           from: 'Meetup <noreply@numstro.com>',
@@ -543,9 +566,10 @@ export async function POST(request: NextRequest) {
           ]
         })
         
+        console.log(`[Calendar Invites] Successfully sent email to ${voter.participant_email}`)
         emailResults.push({ email: voter.participant_email, success: true })
       } catch (emailErr: any) {
-        console.error(`Failed to send email to ${voter.participant_email}:`, emailErr)
+        console.error(`[Calendar Invites] Failed to send email to ${voter.participant_email}:`, emailErr)
         emailResults.push({ 
           email: voter.participant_email, 
           success: false, 
@@ -559,6 +583,8 @@ export async function POST(request: NextRequest) {
         await new Promise(resolve => setTimeout(resolve, 600))
       }
     }
+    
+    console.log(`[Calendar Invites] Email sending complete. Results:`, emailResults)
 
     const successCount = emailResults.filter(r => r.success).length
     const failCount = emailResults.filter(r => !r.success).length

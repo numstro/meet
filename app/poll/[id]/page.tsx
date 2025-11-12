@@ -851,7 +851,8 @@ export default function PollPage() {
                                     type="button"
                                     onClick={(e) => {
                                       e.stopPropagation()
-                                      setOpenCommentTooltip(openCommentTooltip === option.id ? null : option.id)
+                                      const tooltipKey = `${option.id}-${email}`
+                                      setOpenCommentTooltip(openCommentTooltip === tooltipKey ? null : tooltipKey)
                                     }}
                                     className="text-xs opacity-60 hover:opacity-80 active:opacity-100 touch-manipulation"
                                     aria-label="View comments"
@@ -862,7 +863,7 @@ export default function PollPage() {
                               </div>
                               
                               {/* Hover tooltip for comments - positioned above on mobile, below on desktop */}
-                              {hasComments && (
+                              {hasComment && hasComments && (
                                 <div 
                                   ref={(el) => {
                                     if (el) {

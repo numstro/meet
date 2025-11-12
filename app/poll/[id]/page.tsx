@@ -863,7 +863,7 @@ export default function PollPage() {
         )}
         
         {/* Send Calendar Invites Button - Full Width, Centered */}
-        {summary.length > 0 && (
+        {summary.length > 0 ? (
           <div className="mt-6">
             <button
               onClick={() => setShowCalendarModal(true)}
@@ -872,7 +872,7 @@ export default function PollPage() {
               📅 Send Calendar Invites
             </button>
           </div>
-        )}
+        ) : null}
       </div>
 
       {/* Check Previous Votes */}

@@ -118,38 +118,24 @@ export default function PollPage() {
     }
   }, [pollId])
 
-  // Verify creator identity and auto-populate info
+  // Auto-populate creator info from URL params (only when coming from poll creation)
   useEffect(() => {
     const creatorName = searchParams.get('creatorName')
     const creatorEmail = searchParams.get('creatorEmail')
-    const token = searchParams.get('token')
     
-    // Check if user has a valid creator token for this poll
-    const creatorTokens = JSON.parse(typeof window !== 'undefined' ? localStorage.getItem('poll_creator_tokens') || '{}' : '{}')
-    const storedToken = creatorTokens[pollId]
-    const hasValidToken = storedToken && token && storedToken === token
-    
-    if (creatorName && creatorEmail && hasValidToken) {
+    if (creatorName && creatorEmail) {
       setParticipantName(creatorName)
       setParticipantEmail(creatorEmail)
       // Auto-fill creator email for calendar invites if they're the creator
       setCreatorEmailForInvite(creatorEmail)
-      setIsCreator(true)
       
       // Clear the URL params after setting them (optional, for cleaner URLs)
       const url = new URL(window.location.href)
       url.searchParams.delete('creatorName')
       url.searchParams.delete('creatorEmail')
-      url.searchParams.delete('token')
       window.history.replaceState({}, '', url.toString())
-    } else if (poll && storedToken) {
-      // User has a stored token but no URL params - verify they're still the creator
-      if (poll.creator_email) {
-        setIsCreator(true)
-        setCreatorEmailForInvite(poll.creator_email)
-      }
     }
-  }, [searchParams, pollId, poll])
+  }, [searchParams])
 
   // Close tooltip when clicking outside
   useEffect(() => {

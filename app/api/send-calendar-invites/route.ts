@@ -264,29 +264,34 @@ export async function POST(request: NextRequest) {
     }
     
     // Completely unfold all lines first (handle any existing folding)
+    // ICS spec: continuation lines start with space or tab
     const allLines = icsContent.split(/\r\n/)
     const unfolded: string[] = []
     let currentUnfolded = ''
     
-    for (const line of allLines) {
-      const trimmed = line.trimStart()
-      if (trimmed !== line && currentUnfolded) {
+    for (let i = 0; i < allLines.length; i++) {
+      const line = allLines[i]
+      
+      // Check if this is a continuation line (starts with space or tab)
+      if ((line.startsWith(' ') || line.startsWith('\t')) && currentUnfolded) {
         // Continuation line - append without leading whitespace
-        currentUnfolded += trimmed
+        currentUnfolded += line.substring(1) // Remove first space/tab
       } else {
-        // New line
+        // New logical line - save previous and start new
         if (currentUnfolded) {
           unfolded.push(currentUnfolded)
         }
         currentUnfolded = line
       }
     }
+    // Don't forget the last line
     if (currentUnfolded) {
       unfolded.push(currentUnfolded)
     }
     
     // Now properly fold lines >75 characters according to RFC 5545
     // Break at safe points (after semicolons, colons, or commas when possible)
+    // NEVER break right after = sign (would split property values)
     const properlyFolded: string[] = []
     
     for (const line of unfolded) {
@@ -301,13 +306,37 @@ export async function POST(request: NextRequest) {
             break
           }
           
-          // Try to find a safe break point (semicolon, colon, or comma) within last 20 chars
+          // Try to find a safe break point (semicolon, colon, or comma) before position 75
+          // Avoid breaking right after = sign (would split property values like RSVP=TRUE)
           let breakPoint = 75
-          const searchStart = Math.max(55, remaining.length - 20)
-          for (let i = 74; i >= searchStart; i--) {
+          
+          // Search backwards from position 74 to find the last safe break point
+          // Look for semicolons, colons, or commas (but not right after =)
+          for (let i = 74; i >= 55; i--) {
+            // Don't break right after = (would split property values like RSVP=TRUE)
+            if (remaining[i] === '=') {
+              continue // Skip this position, keep searching backwards
+            }
+            // Found a safe break point
             if (remaining[i] === ';' || remaining[i] === ':' || remaining[i] === ',') {
               breakPoint = i + 1
               break
+            }
+          }
+          
+          // Double-check: make sure we're not breaking right after =
+          // If we are, move back to the previous semicolon or break earlier
+          if (remaining[breakPoint - 1] === '=') {
+            // Search backwards for the previous semicolon
+            for (let i = breakPoint - 2; i >= 55; i--) {
+              if (remaining[i] === ';') {
+                breakPoint = i + 1
+                break
+              }
+            }
+            // If no semicolon found, break earlier to avoid splitting after =
+            if (remaining[breakPoint - 1] === '=') {
+              breakPoint = Math.max(55, breakPoint - 5) // Move back a bit
             }
           }
           

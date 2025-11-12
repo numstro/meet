@@ -13,28 +13,6 @@ You need to set SMTP credentials in your environment variables. We use SMTP2GO.
 
 ### SMTP2GO Configuration (Recommended)
 
-1. **Enable 2-Factor Authentication** on your Gmail account
-2. **Generate an App Password:**
-   - Go to https://myaccount.google.com/apppasswords
-   - Select "Mail" and "Other (Custom name)"
-   - Enter "Meet App" and generate
-   - Copy the 16-character password
-
-3. **Set environment variables:**
-   ```bash
-   GMAIL_USER=your-email@gmail.com
-   GMAIL_APP_PASSWORD=your-16-char-app-password
-   ```
-
-   Or use generic SMTP variables:
-   ```bash
-   SMTP_HOST=smtp.gmail.com
-   SMTP_PORT=587
-   SMTP_SECURE=false
-   SMTP_USER=your-email@gmail.com
-   SMTP_PASS=your-16-char-app-password
-   ```
-
 1. **Sign up for SMTP2GO**: https://www.smtp2go.com/
 2. **Get your SMTP credentials**:
    - Go to "Sending > SMTP Users" in your SMTP2GO dashboard
@@ -110,4 +88,3 @@ Content-Type: text/calendar; method=REQUEST; charset=UTF-8
 ```
 
 This is why we use Nodemailer - Resend cannot set this header, which is why Gmail showed "Unable to load event" even though the ICS file was valid.
-

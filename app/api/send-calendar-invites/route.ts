@@ -197,8 +197,8 @@ export async function POST(request: NextRequest) {
       })),
       status: ICalEventStatus.CONFIRMED,
       busystatus: ICalEventBusyStatus.BUSY,
-      // Add UID to ensure Gmail recognizes it as a unique event
-      uid: `${pollId}-${optionId}-${Date.now()}@${request.nextUrl.hostname}`
+      // Add unique ID to ensure Gmail recognizes it as a unique event
+      id: `${pollId}-${optionId}-${Date.now()}@${request.nextUrl.hostname}`
     })
 
     // Generate .ics file content

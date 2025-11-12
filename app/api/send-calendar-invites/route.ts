@@ -221,7 +221,7 @@ export async function POST(request: NextRequest) {
     })
     
     // Build event data - standard ical-generator format
-    const eventData = {
+    const eventData: any = {
       start,
       end,
       timezone: validTimezone,

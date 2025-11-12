@@ -1,7 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
 import { Resend } from 'resend'
-import ical, { ICalCalendarMethod } from 'ical-generator'
+import ical, { 
+  ICalCalendarMethod, 
+  ICalAttendeeStatus, 
+  ICalAttendeeType,
+  ICalEventStatus,
+  ICalEventBusyStatus
+} from 'ical-generator'
 
 export const dynamic = 'force-dynamic'
 
@@ -179,11 +185,11 @@ export async function POST(request: NextRequest) {
         name: v.participant_name || v.participant_email,
         email: v.participant_email,
         rsvp: true,
-        status: 'NEEDS-ACTION',
-        type: 'INDIVIDUAL'
+        status: ICalAttendeeStatus.NEEDSACTION,
+        type: ICalAttendeeType.INDIVIDUAL
       })),
-      status: 'CONFIRMED',
-      busystatus: 'BUSY'
+      status: ICalEventStatus.CONFIRMED,
+      busystatus: ICalEventBusyStatus.BUSY
     })
 
     // Generate .ics file content

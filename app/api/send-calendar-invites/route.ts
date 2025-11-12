@@ -331,16 +331,35 @@ export async function POST(request: NextRequest) {
         
         // Insert VTIMEZONE block after METHOD:REQUEST and before BEGIN:VEVENT
         // Format: METHOD:REQUEST\r\n[VTIMEZONE block]\r\nBEGIN:VEVENT
+        // Try multiple regex patterns to handle different line ending scenarios
         if (vtimezoneString && vtimezoneString.includes('BEGIN:VTIMEZONE')) {
-          icsContent = icsContent.replace(
+          // Try CRLF first (standard)
+          let replaced = icsContent.replace(
             /(METHOD:REQUEST\r\n)/,
             `$1${vtimezoneString}\r\n`
           )
+          
+          // If that didn't work, try LF (Unix)
+          if (replaced === icsContent) {
+            replaced = icsContent.replace(
+              /(METHOD:REQUEST\n)/,
+              `$1${vtimezoneString.replace(/\r\n/g, '\n')}\n`
+            )
+            // Convert back to CRLF
+            if (replaced !== icsContent) {
+              replaced = replaced.replace(/\n/g, '\r\n')
+            }
+          }
+          
+          icsContent = replaced
           console.log('[ICS Generation] Successfully injected VTIMEZONE block')
           
           // Verify it was inserted
           if (!icsContent.includes('BEGIN:VTIMEZONE')) {
             console.error('[ICS Generation] ERROR: VTIMEZONE block injection failed - block not found after insertion!')
+            console.error('[ICS Generation] ICS content preview:', icsContent.substring(0, 500))
+          } else {
+            console.log('[ICS Generation] Verified: VTIMEZONE block is now present')
           }
         } else {
           console.error('[ICS Generation] ERROR: Generated VTIMEZONE block is invalid:', vtimezoneString?.substring(0, 100))

@@ -408,19 +408,33 @@ END:VTIMEZONE`,
       )
     }
 
-    // Initialize Resend - following ChatGPT's recommendations
-    // Note: Resend with Buffer attachment may not show Gmail inline cards, but download works
-    // For Gmail inline Accept/Decline buttons, we'd need Nodemailer with Content-Type header
-    // (Content-Type: text/calendar; method=REQUEST; charset=UTF-8) which Resend can't set
-    const { Resend } = await import('resend')
-    const resend = new Resend(process.env.RESEND_API_KEY)
+    // Initialize Nodemailer with SMTP2GO - required for Gmail inline Accept/Decline cards
+    // Resend can't set Content-Type: text/calendar; method=REQUEST; charset=UTF-8
+    const nodemailer = (await import('nodemailer')).default
+    
+    // SMTP2GO configuration
+    const smtpHost = process.env.SMTP_HOST || 'mail.smtp2go.com'
+    const smtpPort = Number(process.env.SMTP_PORT || 2525) // 2525 is SMTP2GO's TLS port
+    const smtpSecure = process.env.SMTP_SECURE === 'true' || smtpPort === 465
+    const smtpUser = process.env.SMTP_USER
+    const smtpPass = process.env.SMTP_PASS
 
-    if (!process.env.RESEND_API_KEY) {
+    if (!smtpUser || !smtpPass) {
       return NextResponse.json(
-        { error: 'Email service not configured. Please set RESEND_API_KEY environment variable.' },
+        { error: 'Email service not configured. Please set SMTP_USER and SMTP_PASS environment variables.' },
         { status: 500 }
       )
     }
+
+    const transporter = nodemailer.createTransport({
+      host: smtpHost,
+      port: smtpPort,
+      secure: smtpSecure, // true for 465, false for other ports
+      auth: {
+        user: smtpUser,
+        pass: smtpPass
+      }
+    })
 
     const emailResults = []
     const htmlContent = `
@@ -459,30 +473,33 @@ END:VTIMEZONE`,
       </div>
     `
 
-    // Send emails with Resend - standard approach
+    // Send emails with Nodemailer - required for Gmail inline Accept/Decline cards
+    // The critical difference: we can set Content-Type: text/calendar; method=REQUEST; charset=UTF-8
     console.log(`[Calendar Invites] Preparing to send ${uniqueVoters.length} email(s) to:`, uniqueVoters.map(v => v.participant_email))
+    
+    // Ensure ICS content is CRLF-normalized and ready for Buffer
+    const icsBuffer = Buffer.from(icsContent, 'utf8')
     
     for (let i = 0; i < uniqueVoters.length; i++) {
       const voter = uniqueVoters[i]
       console.log(`[Calendar Invites] Sending email ${i + 1}/${uniqueVoters.length} to ${voter.participant_email}`)
       try {
-        const { data, error } = await resend.emails.send({
+        await transporter.sendMail({
           from: 'Meetup <noreply@numstro.com>',
           to: voter.participant_email,
-          reply_to: poll.creator_email,
+          replyTo: poll.creator_email,
           subject: `📅 Calendar Invite: ${poll.title}`,
           html: htmlContent.replace('Hi there,', `Hi ${voter.participant_name || 'there'},`),
           attachments: [
             {
               filename: 'invite.ics',
-              content: Buffer.from(icsContent, 'utf8') // Buffer -> base64 encoding, preserves CRLF
+              content: icsBuffer,
+              contentType: 'text/calendar; method=REQUEST; charset=UTF-8', // Critical for Gmail inline cards
+              // Optional: helps some clients recognize it as a calendar message
+              // headers: { 'Content-Class': 'urn:content-classes:calendarmessage' }
             }
           ]
         })
-        
-        if (error) {
-          throw error
-        }
         
         console.log(`[Calendar Invites] Successfully sent email to ${voter.participant_email}`)
         emailResults.push({ email: voter.participant_email, success: true })
@@ -495,7 +512,7 @@ END:VTIMEZONE`,
         })
       }
       
-      // Rate limiting: wait 600ms between emails (Resend allows 2 requests/second)
+      // Rate limiting: wait 600ms between emails
       if (i < uniqueVoters.length - 1) {
         await new Promise(resolve => setTimeout(resolve, 600))
       }

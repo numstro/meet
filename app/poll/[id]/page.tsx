@@ -866,14 +866,15 @@ export default function PollPage() {
                               {hasComment && hasComments && (
                                 <div 
                                   ref={(el) => {
+                                    const tooltipKey = `${option.id}-${email}`
                                     if (el) {
-                                      tooltipRefs.current[option.id] = el
+                                      tooltipRefs.current[tooltipKey] = el
                                     } else {
-                                      delete tooltipRefs.current[option.id]
+                                      delete tooltipRefs.current[tooltipKey]
                                     }
                                   }}
                                   className={`absolute left-1/2 bottom-full mb-2 transform -translate-x-1/2 z-50 transition-opacity duration-200 ${
-                                    openCommentTooltip === option.id 
+                                    openCommentTooltip === `${option.id}-${email}`
                                       ? 'opacity-100 pointer-events-auto sm:opacity-0 sm:group-hover:opacity-100' 
                                       : 'opacity-0 group-hover:opacity-100 sm:group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto sm:group-hover:pointer-events-auto'
                                   }`}

@@ -723,11 +723,11 @@ export default function PollPage() {
             </div>
             
             {/* Grid Table */}
-            <div className="overflow-x-auto border border-gray-200 rounded-lg">
-              <table className="w-full border-collapse">
-                <thead>
-                  <tr className="bg-gray-50">
-                    <th className="text-left p-3 border-r border-gray-200 min-w-[150px] font-medium">
+              <div className="overflow-x-auto border border-gray-200 rounded-lg" style={{ overscrollBehavior: 'contain' }}>
+                <table className="w-full border-collapse" style={{ minWidth: 'fit-content' }}>
+                  <thead>
+                    <tr className="bg-gray-50">
+                      <th className="text-left p-3 border-r border-gray-200 min-w-[150px] font-medium">
                       <div className="flex items-center space-x-2">
                         <span>{new Set(responses.map(r => r.participant_email)).size} participants</span>
                         <button className="text-blue-600 hover:text-blue-800 text-lg">➕</button>

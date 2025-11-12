@@ -483,7 +483,7 @@ export default function CreatePollPage() {
               <table ref={tableRef} className="w-full border-collapse">
               <thead>
                 <tr className="bg-gray-50">
-                  <th className="text-left p-3 border-r border-gray-200 font-medium" style={{ minWidth: '180px' }}>
+                  <th className="text-left p-3 border-r border-gray-200 font-medium" style={{ minWidth: '140px', maxWidth: '180px' }}>
                     Date
                   </th>
                   <th className="text-center p-3 border-r border-gray-200 font-medium" style={{ minWidth: '120px' }}>
@@ -502,7 +502,7 @@ export default function CreatePollPage() {
               <tbody>
                 {timeOptions.map((option, index) => (
                   <tr key={index} className="hover:bg-gray-50">
-                    <td className="p-3 border-r border-b border-gray-200">
+                    <td className="p-3 border-r border-b border-gray-200" style={{ maxWidth: '180px' }}>
                       <input
                         type="date"
                         value={option.date}

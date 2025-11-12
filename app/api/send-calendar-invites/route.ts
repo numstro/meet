@@ -265,14 +265,16 @@ export async function POST(request: NextRequest) {
     }
     
     // Fix line folding: ICS spec requires lines >75 chars to be folded with CRLF + space
-    // First, unfold any existing folded lines (lines starting with space are continuations)
+    // First, unfold any existing folded lines (lines starting with space/tab are continuations)
     const unfoldedLines: string[] = []
     let currentLine = ''
     
     for (const line of icsContent.split(/\r\n/)) {
-      if (line.startsWith(' ') || line.startsWith('\t')) {
-        // This is a continuation line - append to current line (without leading space)
-        currentLine += line.substring(1)
+      // Check if this is a continuation line (starts with space or tab)
+      const trimmed = line.trimStart()
+      if (trimmed !== line && currentLine) {
+        // This is a continuation line - append to current line (trim all leading whitespace)
+        currentLine += trimmed
       } else {
         // New line - save previous and start new
         if (currentLine) {

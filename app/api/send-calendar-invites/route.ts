@@ -277,9 +277,10 @@ export async function POST(request: NextRequest) {
     icsContent = icsContent.replace(/^DTSTAMP:(\d{8}T\d{6})(?!Z)/m, 'DTSTAMP:$1Z')
     
     // 4. CRITICAL FIX: Gmail's parser fails on folded UID/ATTENDEE/ORGANIZER lines
-    // Flatten soft line breaks (CRLF + space continuation) in these fields
-    // This regex removes continuation lines that start with a space after CRLF
-    icsContent = icsContent.replace(/\r\n ([A-Z0-9\-@=:";]+)/g, '$1')
+    // Flatten soft line breaks (CRLF + space continuation) in these specific fields
+    // Gmail stops parsing when it sees wrapped UID/ATTENDEE/ORGANIZER, even though RFC 5545 allows it
+    // Match lines that start with UID, ATTENDEE, or ORGANIZER, then remove any continuation lines
+    icsContent = icsContent.replace(/(^(?:UID|ATTENDEE|ORGANIZER)[^\r\n]*)\r\n ([^\r\n]+)/gm, '$1$2')
     
     // 3. Ensure VTIMEZONE block is present (Google Calendar includes this, and TZID format requires it)
     // Match Google Calendar's exact VTIMEZONE format

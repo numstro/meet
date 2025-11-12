@@ -296,11 +296,11 @@ export async function POST(request: NextRequest) {
           reply_to: poll.creator_email,
           subject: `📅 Calendar Invite: ${poll.title}`,
           // Add calendar invite as attachment
-          // Match Resend example exactly: use string content (not Buffer) with content_type
+          // Combine Buffer encoding (GitHub issue #278) with content_type header (Resend example)
           attachments: [
             {
               filename: 'invite.ics',
-              content: icsContent,
+              content: Buffer.from(icsContent, 'utf-8'),
               // @ts-ignore - Resend supports content_type but TypeScript types may not include it yet
               content_type: 'text/calendar; charset="UTF-8"; method=REQUEST'
             }

@@ -66,6 +66,7 @@ export default function PollPage() {
   const [expandedComments, setExpandedComments] = useState<Record<string, boolean>>({}) // optionId -> isExpanded
   const [openCommentTooltip, setOpenCommentTooltip] = useState<string | null>(null) // optionId -> track which tooltip is open on mobile
   const tooltipRefs = useRef<Record<string, HTMLDivElement | null>>({})
+  const [isCreator, setIsCreator] = useState(false) // Track if current user is the poll creator
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [hasVoted, setHasVoted] = useState(false)
   const [isEditingVotes, setIsEditingVotes] = useState(false)
@@ -118,24 +119,38 @@ export default function PollPage() {
     }
   }, [pollId])
 
-  // Auto-populate creator info from URL params (only when coming from poll creation)
+  // Verify creator identity and auto-populate info
   useEffect(() => {
     const creatorName = searchParams.get('creatorName')
     const creatorEmail = searchParams.get('creatorEmail')
+    const token = searchParams.get('token')
     
-    if (creatorName && creatorEmail) {
+    // Check if user has a valid creator token for this poll
+    const creatorTokens = JSON.parse(typeof window !== 'undefined' ? localStorage.getItem('poll_creator_tokens') || '{}' : '{}')
+    const storedToken = creatorTokens[pollId]
+    const hasValidToken = storedToken && token && storedToken === token
+    
+    if (creatorName && creatorEmail && hasValidToken) {
       setParticipantName(creatorName)
       setParticipantEmail(creatorEmail)
       // Auto-fill creator email for calendar invites if they're the creator
       setCreatorEmailForInvite(creatorEmail)
+      setIsCreator(true)
       
       // Clear the URL params after setting them (optional, for cleaner URLs)
       const url = new URL(window.location.href)
       url.searchParams.delete('creatorName')
       url.searchParams.delete('creatorEmail')
+      url.searchParams.delete('token')
       window.history.replaceState({}, '', url.toString())
+    } else if (poll && storedToken) {
+      // User has a stored token but no URL params - verify they're still the creator
+      if (poll.creator_email) {
+        setIsCreator(true)
+        setCreatorEmailForInvite(poll.creator_email)
+      }
     }
-  }, [searchParams])
+  }, [searchParams, pollId, poll])
 
   // Close tooltip when clicking outside
   useEffect(() => {
@@ -528,8 +543,18 @@ export default function PollPage() {
       return
     }
 
+    // Verify creator identity using token
+    const creatorTokens = JSON.parse(typeof window !== 'undefined' ? localStorage.getItem('poll_creator_tokens') || '{}' : '{}')
+    const storedToken = creatorTokens[poll.id]
+    
+    if (!storedToken || !isCreator) {
+      setErrorMessage('Only the poll creator can send calendar invites. You must be logged in as the creator.')
+      setShowErrorModal(true)
+      return
+    }
+
     if (creatorEmailForInvite.toLowerCase() !== poll.creator_email.toLowerCase()) {
-      setErrorMessage('Only the poll creator can send calendar invites. Please enter the creator\'s email address.')
+      setErrorMessage('The email you entered does not match the poll creator\'s email.')
       setShowErrorModal(true)
       return
     }
@@ -910,8 +935,8 @@ export default function PollPage() {
           </div>
         )}
         
-        {/* Send Calendar Invites Button - Full Width, Centered */}
-        {summary.length > 0 ? (
+        {/* Send Calendar Invites Button - Full Width, Centered - Only show to creator */}
+        {summary.length > 0 && isCreator ? (
           <div className="mt-6">
             <button
               onClick={() => setShowCalendarModal(true)}
@@ -1462,21 +1487,29 @@ export default function PollPage() {
               )}
 
               {/* Creator Email Verification */}
-              <div className="mb-6">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Creator Email (required):
-                </label>
-                <input
-                  type="email"
-                  value={creatorEmailForInvite}
-                  onChange={(e) => setCreatorEmailForInvite(e.target.value)}
-                  className="w-full px-3 py-2 bg-white text-gray-900 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder={poll.creator_email}
-                />
-                <p className="mt-1 text-xs text-gray-500">
-                  Only the poll creator ({poll.creator_email}) can send calendar invites.
-                </p>
-              </div>
+              {isCreator ? (
+                <div className="mb-6">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Creator Email:
+                  </label>
+                  <input
+                    type="email"
+                    value={creatorEmailForInvite}
+                    onChange={(e) => setCreatorEmailForInvite(e.target.value)}
+                    className="w-full px-3 py-2 bg-white text-gray-900 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder={poll.creator_email}
+                  />
+                  <p className="mt-1 text-xs text-green-600">
+                    ✓ Verified as poll creator
+                  </p>
+                </div>
+              ) : (
+                <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-md">
+                  <p className="text-sm text-yellow-800">
+                    ⚠️ Only the poll creator can send calendar invites. If you created this poll, please access it from the original link you received.
+                  </p>
+                </div>
+              )}
 
               {/* Action Buttons */}
               <div className="flex gap-3">

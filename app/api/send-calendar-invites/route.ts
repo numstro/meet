@@ -213,18 +213,33 @@ export async function POST(request: NextRequest) {
     // This will generate VTIMEZONE blocks automatically for Gmail compatibility
     // METHOD:REQUEST is required for Gmail to recognize this as an interactive meeting invite
     // NOTE: Do NOT include 'name' property - it's not a valid ICS property and causes Gmail to reject
-    const calendar = ical({ 
-      timezone: {
-        name: validTimezone,
-        generator: getVtimezoneComponent // Generate VTIMEZONE blocks (matching Google's format)
-      },
-      method: ICalCalendarMethod.REQUEST, // Required for Gmail to render inline event card
-      prodId: {
-        company: 'Numstro',
-        product: 'Meet',
-        language: 'EN'
-      }
-    })
+    let calendar
+    try {
+      calendar = ical({ 
+        timezone: {
+          name: validTimezone,
+          generator: getVtimezoneComponent // Generate VTIMEZONE blocks (matching Google's format)
+        },
+        method: ICalCalendarMethod.REQUEST, // Required for Gmail to render inline event card
+        prodId: {
+          company: 'Numstro',
+          product: 'Meet',
+          language: 'EN'
+        }
+      })
+    } catch (error) {
+      console.error('Error creating calendar with timezone generator:', error)
+      // Fallback: create calendar without timezone generator (will use default)
+      calendar = ical({ 
+        timezone: validTimezone,
+        method: ICalCalendarMethod.REQUEST,
+        prodId: {
+          company: 'Numstro',
+          product: 'Meet',
+          language: 'EN'
+        }
+      })
+    }
     
     // Generate shorter UID to avoid line folding issues (max 75 chars)
     // Format: pollId-optionId-timestamp@domain (truncate if needed)
@@ -286,8 +301,20 @@ export async function POST(request: NextRequest) {
     // X-WR-CALNAME is non-standard and might confuse Gmail
     icsContent = icsContent.replace(/^X-WR-CALNAME:.*$/gm, '')
     
+    // Remove non-standard timezone properties (VTIMEZONE block is the correct way)
+    // TIMEZONE-ID and X-WR-TIMEZONE are non-standard and might confuse Gmail
+    icsContent = icsContent.replace(/^TIMEZONE-ID:.*$/gm, '')
+    icsContent = icsContent.replace(/^X-WR-TIMEZONE:.*$/gm, '')
+    
     // Remove empty DESCRIPTION lines (DESCRIPTION: with no value)
     icsContent = icsContent.replace(/^DESCRIPTION:\s*$/gm, '')
+    
+    // Ensure VTIMEZONE block is present (critical for Gmail)
+    // If it's missing, the timezone-aware times won't work
+    if (!icsContent.includes('BEGIN:VTIMEZONE')) {
+      console.error('WARNING: VTIMEZONE block is missing from ICS file!')
+      // This shouldn't happen if getVtimezoneComponent is working
+    }
     
     // Fix ORGANIZER format: Remove quotes around CN value (Google Calendar doesn't use quotes)
     // Change: ORGANIZER;CN="name":mailto:... to ORGANIZER;CN=name:mailto:...

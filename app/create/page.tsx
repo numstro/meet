@@ -479,35 +479,36 @@ export default function CreatePollPage() {
           </div>
 
           <div className="border border-gray-200 rounded-lg overflow-hidden">
-            <div className="overflow-x-auto" style={{ overscrollBehavior: 'contain' }}>
-              <table ref={tableRef} className="w-full border-collapse" style={{ minWidth: 'fit-content' }}>
+            <div className="overflow-x-auto" style={{ overscrollBehavior: 'contain', WebkitOverflowScrolling: 'touch' }}>
+              <table ref={tableRef} className="border-collapse" style={{ width: '100%', tableLayout: 'fixed' }}>
               <thead>
                 <tr className="bg-gray-50">
-                  <th className="text-left p-3 border-r border-gray-200 font-medium" style={{ minWidth: '140px', maxWidth: '180px' }}>
+                  <th className="text-left p-2 sm:p-3 border-r border-gray-200 font-medium" style={{ minWidth: '120px', maxWidth: '150px', width: '120px' }}>
                     Date
                   </th>
-                  <th className="text-center p-3 border-r border-gray-200 font-medium" style={{ minWidth: '120px' }}>
+                  <th className="text-center p-2 sm:p-3 border-r border-gray-200 font-medium" style={{ width: '80px', minWidth: '80px' }}>
                     🌅 Morning
                   </th>
-                  <th className="text-center p-3 border-r border-gray-200 font-medium" style={{ minWidth: '120px' }}>
+                  <th className="text-center p-2 sm:p-3 border-r border-gray-200 font-medium" style={{ width: '80px', minWidth: '80px' }}>
                     ☀️ Afternoon
                   </th>
-                  <th className="text-center p-3 border-r border-gray-200 font-medium" style={{ minWidth: '120px' }}>
+                  <th className="text-center p-2 sm:p-3 border-r border-gray-200 font-medium" style={{ width: '80px', minWidth: '80px' }}>
                     🌙 Evening
                   </th>
-                  <th className="text-center p-3 font-medium" style={{ minWidth: '60px' }}>
+                  <th className="text-center p-2 sm:p-3 font-medium" style={{ width: '50px', minWidth: '50px' }}>
                   </th>
                 </tr>
               </thead>
               <tbody>
                 {timeOptions.map((option, index) => (
                   <tr key={index} className="hover:bg-gray-50">
-                    <td className="p-3 border-r border-b border-gray-200" style={{ maxWidth: '180px' }}>
+                    <td className="p-2 sm:p-3 border-r border-b border-gray-200" style={{ maxWidth: '150px', width: '120px' }}>
                       <input
                         type="date"
                         value={option.date}
                         onChange={(e) => updateTimeOption(index, 'date', e.target.value)}
-                        className="w-full px-3 py-2 bg-white text-gray-900 text-base border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-2 sm:px-3 py-1.5 sm:py-2 bg-white text-gray-900 text-sm sm:text-base border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        style={{ fontSize: '14px' }}
                       />
                       {option.date && (
                         <div className="text-xs text-gray-500 mt-1 whitespace-nowrap">

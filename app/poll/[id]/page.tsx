@@ -293,14 +293,22 @@ export default function PollPage() {
 
     try {
       // Use upsert (insert or update) to handle existing responses
-      const responsesToUpsert = Object.entries(userResponses).map(([optionId, response]) => ({
-        poll_id: pollId,
-        option_id: optionId,
-        participant_name: participantName,
-        participant_email: participantEmail,
-        response,
-        comment: userComments[optionId]?.trim() || null
-      }))
+      // Note: comment field is optional - will be ignored if column doesn't exist in DB
+      const responsesToUpsert = Object.entries(userResponses).map(([optionId, response]) => {
+        const commentValue = userComments[optionId]?.trim() || null
+        const responseData: any = {
+          poll_id: pollId,
+          option_id: optionId,
+          participant_name: participantName,
+          participant_email: participantEmail,
+          response
+        }
+        // Only include comment if it has a value (gracefully handle missing DB column)
+        if (commentValue) {
+          responseData.comment = commentValue
+        }
+        return responseData
+      })
 
       if (responsesToUpsert.length > 0) {
         const { error: upsertError } = await supabase
@@ -992,35 +1000,54 @@ export default function PollPage() {
                                 ))}
                               </div>
                               
-                              {/* Comment field - expandable */}
+                              {/* Comment button - opens popover */}
                               {currentResponse && (
-                                <div className="mt-1">
-                                  {isCommentExpanded ? (
-                                    <div className="space-y-1">
-                                      <textarea
-                                        value={userComments[option.id] || ''}
-                                        onChange={(e) => handleCommentChange(option.id, e.target.value)}
-                                        placeholder="Add a comment (optional)"
-                                        maxLength={200}
-                                        rows={2}
-                                        className="w-full px-2 py-1 text-xs bg-white text-gray-900 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 resize-none"
-                                      />
-                                      <button
-                                        type="button"
-                                        onClick={() => toggleCommentField(option.id)}
-                                        className="text-xs text-gray-500 hover:text-gray-700"
-                                      >
-                                        Hide
-                                      </button>
+                                <div className="mt-1 relative">
+                                  <button
+                                    type="button"
+                                    onClick={() => toggleCommentField(option.id)}
+                                    className="text-xs text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1 mx-auto"
+                                  >
+                                    {hasComment ? '💬 Edit comment' : '💬 Add comment'}
+                                  </button>
+                                  
+                                  {/* Popover for comment */}
+                                  {isCommentExpanded && (
+                                    <div className="absolute left-1/2 top-full mt-2 transform -translate-x-1/2 z-50 w-64">
+                                      <div className="bg-white border border-gray-300 rounded-lg shadow-lg p-3">
+                                        <div className="flex justify-between items-center mb-2">
+                                          <label className="text-xs font-medium text-gray-700">Add a comment (optional)</label>
+                                          <button
+                                            type="button"
+                                            onClick={() => toggleCommentField(option.id)}
+                                            className="text-gray-400 hover:text-gray-600 text-sm"
+                                          >
+                                            ✕
+                                          </button>
+                                        </div>
+                                        <textarea
+                                          value={userComments[option.id] || ''}
+                                          onChange={(e) => handleCommentChange(option.id, e.target.value)}
+                                          placeholder="e.g., 'Can do early evening' or 'I have a dinner'"
+                                          maxLength={200}
+                                          rows={3}
+                                          className="w-full px-3 py-2 text-sm bg-white text-gray-900 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                                        />
+                                        <div className="flex justify-between items-center mt-2">
+                                          <span className="text-xs text-gray-500">
+                                            {(userComments[option.id] || '').length}/200
+                                          </span>
+                                          <button
+                                            type="button"
+                                            onClick={() => toggleCommentField(option.id)}
+                                            className="text-xs text-blue-600 hover:text-blue-800"
+                                          >
+                                            Done
+                                          </button>
+                                        </div>
+                                        <div className="absolute -top-1 left-1/2 transform -translate-x-1/2 w-2 h-2 bg-white border-l border-t border-gray-300 rotate-45"></div>
+                                      </div>
                                     </div>
-                                  ) : (
-                                    <button
-                                      type="button"
-                                      onClick={() => toggleCommentField(option.id)}
-                                      className="text-xs text-gray-500 hover:text-gray-700 flex items-center gap-1 mx-auto"
-                                    >
-                                      {hasComment ? '💬 Edit comment' : '[+] Add comment'}
-                                    </button>
                                   )}
                                 </div>
                               )}

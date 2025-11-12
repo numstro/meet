@@ -252,10 +252,7 @@ export default function PollPage() {
       ...prev,
       [optionId]: response
     }))
-    // Auto-expand comment field when a vote is selected
-    if (response && !expandedComments[optionId]) {
-      setExpandedComments(prev => ({ ...prev, [optionId]: true }))
-    }
+    // Don't auto-expand comment - let user click the button if they want to add one
   }
 
   const handleCommentChange = (optionId: string, comment: string) => {
@@ -311,13 +308,25 @@ export default function PollPage() {
       })
 
       if (responsesToUpsert.length > 0) {
-        const { error: upsertError } = await supabase
+        let { error: upsertError } = await supabase
           .from('poll_responses')
           .upsert(responsesToUpsert, {
             onConflict: 'poll_id,option_id,participant_email'
           })
 
-        if (upsertError) throw upsertError
+        // If error is about missing comment column, retry without comments
+        if (upsertError && upsertError.message?.includes('comment')) {
+          console.warn('Comment column not found, saving without comments')
+          const responsesWithoutComments = responsesToUpsert.map(({ comment, ...rest }) => rest)
+          const { error: retryError } = await supabase
+            .from('poll_responses')
+            .upsert(responsesWithoutComments, {
+              onConflict: 'poll_id,option_id,participant_email'
+            })
+          if (retryError) throw retryError
+        } else if (upsertError) {
+          throw upsertError
+        }
       }
 
       // Also delete any responses for options that are no longer selected

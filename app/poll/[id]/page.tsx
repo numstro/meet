@@ -135,6 +135,25 @@ export default function PollPage() {
     }
   }, [searchParams])
 
+  // Close tooltip when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent | TouchEvent) => {
+      if (tooltipRef.current && !tooltipRef.current.contains(event.target as Node)) {
+        setOpenCommentTooltip(null)
+      }
+    }
+
+    if (openCommentTooltip) {
+      document.addEventListener('mousedown', handleClickOutside)
+      document.addEventListener('touchstart', handleClickOutside)
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+      document.removeEventListener('touchstart', handleClickOutside)
+    }
+  }, [openCommentTooltip])
+
   const loadPollData = async () => {
     try {
       // Load poll details

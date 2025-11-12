@@ -272,7 +272,9 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Send emails with calendar invite
+    // Send emails with calendar invite using Resend
+    // Using Buffer.from() with UTF-8 encoding as per GitHub issue #278 solution
+    // This ensures the ICS content is properly interpreted by Gmail
     if (!process.env.RESEND_API_KEY) {
       return NextResponse.json(
         { error: 'Email service not configured' },
@@ -294,16 +296,21 @@ export async function POST(request: NextRequest) {
           reply_to: poll.creator_email,
           subject: `📅 Calendar Invite: ${poll.title}`,
           // Add calendar invite as attachment
-          // Set content_type explicitly for Gmail compatibility
-          // Note: TypeScript types don't include content_type, but Resend API supports it
+          // Use Buffer.from() with UTF-8 encoding (solution from GitHub issue #278)
+          // Set content_type directly on attachment (as per Resend example)
+          // This ensures the content is properly interpreted by Gmail
           attachments: [
             {
               filename: 'invite.ics',
-              content: Buffer.from(icsContent).toString('base64'),
-              // @ts-ignore - Resend API supports content_type but TypeScript types are incomplete
-              content_type: 'text/calendar; charset=UTF-8; method=REQUEST'
+              content: Buffer.from(icsContent, 'utf-8'),
+              // @ts-ignore - Resend supports content_type but TypeScript types may not include it yet
+              content_type: 'text/calendar; charset="UTF-8"; method=REQUEST'
             }
           ],
+          // Add Content-Disposition header at email level (as per Resend example)
+          headers: {
+            'Content-Disposition': 'attachment; filename="invite.ics"'
+          },
           html: `
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
               <h2 style="color: #1f2937;">📅 Calendar Invite</h2>

@@ -223,7 +223,10 @@ export async function POST(request: NextRequest) {
     const resend = new Resend(process.env.RESEND_API_KEY)
     const emailResults = []
 
-    for (const voter of uniqueVoters) {
+    // Resend rate limit: 2 requests per second
+    // Add delay between emails to avoid rate limiting
+    for (let i = 0; i < uniqueVoters.length; i++) {
+      const voter = uniqueVoters[i]
       try {
         await resend.emails.send({
           from: 'Meetup <noreply@numstro.com>',
@@ -282,6 +285,12 @@ export async function POST(request: NextRequest) {
           email: voter.participant_email, 
           success: false, 
         })
+      }
+      
+      // Rate limiting: wait 600ms between emails (allows ~1.67 requests/second, under the 2/sec limit)
+      // Only wait if not the last email
+      if (i < uniqueVoters.length - 1) {
+        await new Promise(resolve => setTimeout(resolve, 600))
       }
     }
 

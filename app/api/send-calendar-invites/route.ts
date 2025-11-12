@@ -282,6 +282,14 @@ export async function POST(request: NextRequest) {
     // Remove empty DESCRIPTION lines (DESCRIPTION: with no value)
     icsContent = icsContent.replace(/^DESCRIPTION:\s*$/gm, '')
     
+    // Fix ORGANIZER format: Remove quotes around CN value (Google Calendar doesn't use quotes)
+    // Change: ORGANIZER;CN="name":mailto:... to ORGANIZER;CN=name:mailto:...
+    icsContent = icsContent.replace(/ORGANIZER;CN="([^"]+)":/g, 'ORGANIZER;CN=$1:')
+    
+    // Fix ATTENDEE format: Remove quotes around CN value (Google Calendar doesn't use quotes)
+    // Change: CN="name":MAILTO:... to CN=name:MAILTO:...
+    icsContent = icsContent.replace(/CN="([^"]+)":MAILTO:/g, 'CN=$1:MAILTO:')
+    
     // Ensure CALSCALE:GREGORIAN is present (Gmail-friendly)
     if (!icsContent.includes('CALSCALE:GREGORIAN')) {
       icsContent = icsContent.replace(
@@ -472,7 +480,7 @@ export async function POST(request: NextRequest) {
           subject: `📅 Calendar Invite: ${poll.title}`,
           html: htmlContent.replace('Hi there,', `Hi ${voter.participant_name || 'there'},`),
           // Add calendar invite as attachment with proper Content-Type header
-          // Nodemailer gives us full control over headers for Gmail compatibility
+          // Nodemailer will automatically set the correct multipart/mixed Content-Type
           attachments: [
             {
               filename: 'invite.ics',

@@ -80,6 +80,12 @@ icsContent = icsContent.replace(/^X-WR-CALNAME:.*$/gm, '')
 // Remove empty DESCRIPTION lines (DESCRIPTION: with no value)
 icsContent = icsContent.replace(/^DESCRIPTION:\s*$/gm, '')
 
+// Fix ORGANIZER format: Remove quotes around CN value (Google Calendar doesn't use quotes)
+icsContent = icsContent.replace(/ORGANIZER;CN="([^"]+)":/g, 'ORGANIZER;CN=$1:')
+
+// Fix ATTENDEE format: Remove quotes around CN value (Google Calendar doesn't use quotes)
+icsContent = icsContent.replace(/CN="([^"]+)":MAILTO:/g, 'CN=$1:MAILTO:')
+
 // Ensure CALSCALE:GREGORIAN is present
 if (!icsContent.includes('CALSCALE:GREGORIAN')) {
   icsContent = icsContent.replace(

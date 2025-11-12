@@ -823,13 +823,27 @@ export default function PollPage() {
                                   </div>
                                 )}
                                 {hasComment && (
-                                  <span className="text-xs opacity-60">💬</span>
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      setOpenCommentTooltip(openCommentTooltip === option.id ? null : option.id)
+                                    }}
+                                    className="text-xs opacity-60 hover:opacity-80 active:opacity-100 touch-manipulation"
+                                    aria-label="View comments"
+                                  >
+                                    💬
+                                  </button>
                                 )}
                               </div>
                               
                               {/* Hover tooltip for comments - positioned above on mobile, below on desktop */}
                               {hasComments && (
-                                <div className="absolute left-1/2 bottom-full mb-2 sm:bottom-auto sm:top-full sm:mt-2 transform -translate-x-1/2 z-50 opacity-0 group-hover:opacity-100 sm:group-hover:opacity-100 transition-opacity duration-200 pointer-events-none group-hover:pointer-events-auto sm:group-hover:pointer-events-auto">
+                                <div className={`absolute left-1/2 bottom-full mb-2 sm:bottom-auto sm:top-full sm:mt-2 transform -translate-x-1/2 z-50 transition-opacity duration-200 ${
+                                  openCommentTooltip === option.id 
+                                    ? 'opacity-100 pointer-events-auto' 
+                                    : 'opacity-0 group-hover:opacity-100 sm:group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto sm:group-hover:pointer-events-auto'
+                                }`}>
                                   <div className="bg-gray-900 text-white text-xs rounded-lg shadow-lg p-3 min-w-[200px] max-w-[300px]">
                                     <div className="font-semibold mb-2">💬 Comments:</div>
                                     <div className="space-y-2 max-h-48 overflow-y-auto">

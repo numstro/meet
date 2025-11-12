@@ -1,0 +1,251 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { supabase } from '@/lib/supabase'
+import { Resend } from 'resend'
+import ical from 'ical-generator'
+
+export const dynamic = 'force-dynamic'
+
+// Helper function to convert time bucket to actual time
+function getTimeFromBucket(date: string, timeBucket: string): { start: Date; end: Date } {
+  const eventDate = new Date(date)
+  
+  // Set time based on bucket (each event lasts 4 hours)
+  let startHour = 8 // Morning: 8 AM
+  let endHour = 12 // Morning: 12 PM
+  
+  if (timeBucket === 'afternoon') {
+    startHour = 13 // Afternoon: 1 PM
+    endHour = 17 // Afternoon: 5 PM
+  } else if (timeBucket === 'evening') {
+    startHour = 17 // Evening: 5 PM
+    endHour = 21 // Evening: 9 PM
+  }
+  
+  const start = new Date(eventDate)
+  start.setHours(startHour, 0, 0, 0)
+  
+  const end = new Date(eventDate)
+  end.setHours(endHour, 0, 0, 0)
+  
+  return { start, end }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const { pollId, optionId, creatorEmail, startTime, endTime } = await request.json()
+    
+    if (!pollId || !optionId || !creatorEmail || !startTime || !endTime) {
+      return NextResponse.json(
+        { error: 'Missing required fields: pollId, optionId, creatorEmail, startTime, endTime' },
+        { status: 400 }
+      )
+    }
+
+    // Verify creator email matches poll creator
+    const { data: poll, error: pollError } = await supabase
+      .from('polls')
+      .select('*')
+      .eq('id', pollId)
+      .eq('creator_email', creatorEmail.toLowerCase())
+      .single()
+
+    if (pollError || !poll) {
+      return NextResponse.json(
+        { error: 'Unauthorized: Only the poll creator can send calendar invites' },
+        { status: 403 }
+      )
+    }
+
+    // Get the selected poll option
+    const { data: pollOption, error: optionError } = await supabase
+      .from('poll_options')
+      .select('*')
+      .eq('id', optionId)
+      .eq('poll_id', pollId)
+      .single()
+
+    if (optionError || !pollOption) {
+      return NextResponse.json(
+        { error: 'Poll option not found' },
+        { status: 404 }
+      )
+    }
+
+    // Get all voters who voted "yes" or "maybe" for this option
+    const { data: votes, error: votesError } = await supabase
+      .from('poll_responses')
+      .select('participant_email, participant_name')
+      .eq('poll_id', pollId)
+      .eq('option_id', optionId)
+      .in('response', ['yes', 'maybe'])
+
+    if (votesError) {
+      return NextResponse.json(
+        { error: 'Failed to fetch voters' },
+        { status: 500 }
+      )
+    }
+
+    if (!votes || votes.length === 0) {
+      return NextResponse.json(
+        { error: 'No voters found for this option' },
+        { status: 400 }
+      )
+    }
+
+    // Type the votes properly
+    type Voter = { participant_email: string; participant_name: string }
+    const typedVotes = votes as Voter[]
+
+    // Get unique voters (in case someone voted multiple times)
+    const uniqueVoters = Array.from(
+      new Map(typedVotes.map(v => [v.participant_email, v])).values()
+    )
+
+    // Generate calendar event times
+    const timeBucket = pollOption.option_text || 'morning'
+    
+    // Parse times (format: "HH:MM") - these are either custom or defaults from frontend
+    const [startHour, startMin] = startTime.split(':').map(Number)
+    const [endHour, endMin] = endTime.split(':').map(Number)
+    
+    const eventDate = new Date(pollOption.option_date)
+    const start = new Date(eventDate)
+    start.setHours(startHour, startMin, 0, 0)
+    
+    const end = new Date(eventDate)
+    end.setHours(endHour, endMin, 0, 0)
+    
+    // Format date/time for display
+    const dateStr = new Date(pollOption.option_date).toLocaleDateString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    })
+    
+    // Format time string for display
+    const formatTime = (date: Date) => {
+      return date.toLocaleTimeString('en-US', { 
+        hour: 'numeric', 
+        minute: '2-digit',
+        hour12: true 
+      })
+    }
+    const timeStr = `${formatTime(start)} - ${formatTime(end)}`
+
+    // Create calendar event
+    const calendar = ical({ name: poll.title })
+    
+    const event = calendar.createEvent({
+      start,
+      end,
+      summary: poll.title,
+      description: poll.description || '',
+      location: poll.location || '',
+      url: `${request.nextUrl.origin}/poll/${pollId}`,
+      organizer: {
+        name: poll.creator_name,
+        email: poll.creator_email
+      },
+      attendees: uniqueVoters.map(v => ({
+        name: v.participant_name || v.participant_email,
+        email: v.participant_email,
+        rsvp: true
+      }))
+    })
+
+    // Generate .ics file content
+    const icsContent = calendar.toString()
+
+    // Send emails with calendar invite
+    if (!process.env.RESEND_API_KEY) {
+      return NextResponse.json(
+        { error: 'Email service not configured' },
+        { status: 500 }
+      )
+    }
+
+    const resend = new Resend(process.env.RESEND_API_KEY)
+    const emailResults = []
+
+    for (const voter of uniqueVoters) {
+      try {
+        await resend.emails.send({
+          from: 'Meetup <noreply@numstro.com>',
+          to: voter.participant_email,
+          replyTo: poll.creator_email,
+          subject: `📅 Calendar Invite: ${poll.title}`,
+          html: `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+              <h2 style="color: #1f2937;">📅 Calendar Invite</h2>
+              
+              <p>Hi ${voter.participant_name || 'there'},</p>
+              
+              <p><strong>${poll.creator_name}</strong> has scheduled the meeting based on your availability:</p>
+              
+              <div style="background: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                <h3 style="margin-top: 0; color: #111827;">${poll.title}</h3>
+                ${poll.description ? `<p style="color: #4b5563;">${poll.description}</p>` : ''}
+                
+                <div style="margin-top: 15px;">
+                  <p style="margin: 5px 0;"><strong>📅 Date:</strong> ${dateStr}</p>
+                  <p style="margin: 5px 0;"><strong>🕐 Time:</strong> ${timeStr}</p>
+                  ${poll.location ? `<p style="margin: 5px 0;"><strong>📍 Location:</strong> ${poll.location}</p>` : ''}
+                </div>
+              </div>
+              
+              <p style="color: #6b7280; font-size: 14px;">
+                A calendar invite has been attached to this email. Please add it to your calendar.
+              </p>
+              
+              <div style="margin: 30px 0;">
+                <a href="${request.nextUrl.origin}/poll/${pollId}" 
+                   style="background: #3b82f6; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
+                  View Poll
+                </a>
+              </div>
+              
+              <p style="color: #9ca3af; font-size: 12px; margin-top: 30px;">
+                This invite was sent because you voted "yes" or "maybe" for this time slot.
+              </p>
+            </div>
+          `,
+          attachments: [
+            {
+              filename: 'invite.ics',
+              content: Buffer.from(icsContent).toString('base64')
+            }
+          ]
+        })
+        
+        emailResults.push({ email: voter.participant_email, success: true })
+      } catch (emailErr: any) {
+        console.error(`Failed to send email to ${voter.participant_email}:`, emailErr)
+        emailResults.push({ 
+          email: voter.participant_email, 
+          success: false, 
+        })
+      }
+    }
+
+    const successCount = emailResults.filter(r => r.success).length
+    const failCount = emailResults.filter(r => !r.success).length
+
+    return NextResponse.json({
+      success: true,
+      message: `Calendar invites sent to ${successCount} participant${successCount !== 1 ? 's' : ''}`,
+      sent: successCount,
+      failed: failCount,
+      total: uniqueVoters.length
+    })
+
+  } catch (error: any) {
+    console.error('Send calendar invites error:', error)
+    return NextResponse.json(
+      { error: error.message || 'Internal server error' },
+      { status: 500 }
+    )
+  }
+}
+

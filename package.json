@@ -16,6 +16,7 @@
     "autoprefixer": "^10.4.16",
     "date-fns": "^2.30.0",
     "date-fns-tz": "^2.0.0",
+    "ical-generator": "^10.0.0",
     "moment": "^2.29.4",
     "next": "14.0.3",
     "postcss": "^8.4.32",
@@ -35,4 +36,3 @@
     "typescript": "^5"
   }
 }
-

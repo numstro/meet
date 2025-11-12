@@ -78,6 +78,15 @@ export default function PollPage() {
   const [deleteEmail, setDeleteEmail] = useState('')
   const [isDeleting, setIsDeleting] = useState(false)
 
+  // Calendar invite state
+  const [showCalendarModal, setShowCalendarModal] = useState(false)
+  const [selectedOptionId, setSelectedOptionId] = useState<string | null>(null)
+  const [creatorEmailForInvite, setCreatorEmailForInvite] = useState('')
+  const [isSendingInvites, setIsSendingInvites] = useState(false)
+  const [inviteResult, setInviteResult] = useState<{ success: boolean; message: string } | null>(null)
+  const [customStartTime, setCustomStartTime] = useState('')
+  const [customEndTime, setCustomEndTime] = useState('')
+
   // Time bucket options
   const timeBuckets = [
     { value: 'morning', label: '🌅 Morning', description: '8 AM - 12 PM' },
@@ -417,6 +426,77 @@ export default function PollPage() {
     return finalWinners
   }
 
+  // Get default times for a time bucket
+  const getDefaultTimes = (timeBucket: string) => {
+    if (timeBucket === 'morning') {
+      return { start: '08:00', end: '12:00' }
+    } else if (timeBucket === 'afternoon') {
+      return { start: '13:00', end: '17:00' }
+    } else {
+      return { start: '17:00', end: '21:00' }
+    }
+  }
+
+  const sendCalendarInvites = async () => {
+    if (!poll || !selectedOptionId || !creatorEmailForInvite) {
+      setError('Please select a time option and enter your email')
+      return
+    }
+
+    if (creatorEmailForInvite.toLowerCase() !== poll.creator_email.toLowerCase()) {
+      setError('Please enter the correct creator email address')
+      return
+    }
+
+    // Get the selected option to determine default times
+    const selectedOption = options.find(opt => opt.id === selectedOptionId)
+    const defaults = selectedOption ? getDefaultTimes(selectedOption.option_text || 'morning') : { start: '08:00', end: '12:00' }
+    
+    // Use custom times if both are provided and not empty, otherwise use defaults
+    const startTime = (customStartTime && customStartTime.trim()) ? customStartTime : defaults.start
+    const endTime = (customEndTime && customEndTime.trim()) ? customEndTime : defaults.end
+
+    setIsSendingInvites(true)
+    setInviteResult(null)
+    setError('')
+
+    try {
+      const response = await fetch('/api/send-calendar-invites', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          pollId: poll.id,
+          optionId: selectedOptionId,
+          creatorEmail: creatorEmailForInvite.toLowerCase(),
+          // Always send times (will be defaults if custom times not provided)
+          startTime: startTime,
+          endTime: endTime
+        })
+      })
+
+      const result = await response.json()
+
+      if (response.ok) {
+        setInviteResult({ success: true, message: result.message })
+        // Close modal after 2 seconds
+        setTimeout(() => {
+          setShowCalendarModal(false)
+          setInviteResult(null)
+          setSelectedOptionId(null)
+          setCreatorEmailForInvite('')
+          setCustomStartTime('')
+          setCustomEndTime('')
+        }, 2000)
+      } else {
+        setInviteResult({ success: false, message: result.error || 'Failed to send invites' })
+      }
+    } catch (err: any) {
+      setInviteResult({ success: false, message: err.message || 'Failed to send invites' })
+    } finally {
+      setIsSendingInvites(false)
+    }
+  }
+
   const deletePoll = async () => {
     if (!poll || deleteEmail.toLowerCase() !== poll.creator_email.toLowerCase()) {
       setError('Please enter the correct creator email address')
@@ -469,12 +549,20 @@ export default function PollPage() {
       <div className="mb-8">
         <div className="flex justify-between items-start mb-2">
           <h1 className="text-3xl font-bold text-gray-900">{poll.title}</h1>
-          <button
-            onClick={() => setShowDeleteConfirm(true)}
-            className="text-red-600 hover:text-red-800 text-sm font-medium px-3 py-1 rounded border border-red-200 hover:border-red-300 transition-colors"
-          >
-            🗑️ Delete Poll
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setShowCalendarModal(true)}
+              className="text-blue-600 hover:text-blue-800 text-sm font-medium px-3 py-1 rounded border border-blue-200 hover:border-blue-300 transition-colors"
+            >
+              📅 Send Calendar Invites
+            </button>
+            <button
+              onClick={() => setShowDeleteConfirm(true)}
+              className="text-red-600 hover:text-red-800 text-sm font-medium px-3 py-1 rounded border border-red-200 hover:border-red-300 transition-colors"
+            >
+              🗑️ Delete Poll
+            </button>
+          </div>
         </div>
         {poll.description && (
           <p className="text-gray-600 mb-4">{poll.description}</p>
@@ -988,6 +1076,181 @@ export default function PollPage() {
                 </div>
               )
             })}
+          </div>
+        </div>
+      )}
+
+      {/* Send Calendar Invites Modal */}
+      {showCalendarModal && poll && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-semibold text-gray-900">📅 Send Calendar Invites</h3>
+                <button
+                  onClick={() => {
+                    setShowCalendarModal(false)
+                    setSelectedOptionId(null)
+                    setCreatorEmailForInvite('')
+                    setInviteResult(null)
+                    setCustomStartTime('')
+                    setCustomEndTime('')
+                  }}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <p className="text-gray-600 mb-6">
+                Select a date and time option to send calendar invites to all participants who voted "yes" or "maybe" for that option.
+              </p>
+
+              {inviteResult && (
+                <div className={`mb-4 p-3 rounded-md ${
+                  inviteResult.success 
+                    ? 'bg-green-50 border border-green-200' 
+                    : 'bg-red-50 border border-red-200'
+                }`}>
+                  <p className={inviteResult.success ? 'text-green-800' : 'text-red-800'}>
+                    {inviteResult.message}
+                  </p>
+                </div>
+              )}
+
+              {/* Options Selection */}
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 mb-3">
+                  Select Date & Time:
+                </label>
+                <div className="space-y-2 max-h-64 overflow-y-auto">
+                  {options.map((option) => {
+                    const optionSummary = summary.find(s => s.option_id === option.id)
+                    const yesCount = optionSummary?.yes_count || 0
+                    const maybeCount = optionSummary?.maybe_count || 0
+                    const totalVoters = yesCount + maybeCount
+                    const bestOptions = getBestOptions()
+                    const isTopChoice = bestOptions.some(best => best.option_id === option.id)
+                    
+                    const dateStr = format(new Date(option.option_date + 'T00:00:00'), 'EEEE, MMMM d, yyyy')
+                    const timeLabel = option.option_text === 'morning' ? '🌅 Morning (8 AM - 12 PM)' :
+                                     option.option_text === 'afternoon' ? '☀️ Afternoon (1 PM - 5 PM)' :
+                                     '🌙 Evening (5 PM - 9 PM)'
+
+                    return (
+                      <div
+                        key={option.id}
+                        onClick={() => {
+                          setSelectedOptionId(option.id)
+                          const defaults = getDefaultTimes(option.option_text || 'morning')
+                          setCustomStartTime(defaults.start)
+                          setCustomEndTime(defaults.end)
+                        }}
+                        className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                          selectedOptionId === option.id
+                            ? 'border-blue-500 bg-blue-50'
+                            : isTopChoice
+                            ? 'border-red-400 bg-red-50'
+                            : 'border-gray-200 hover:border-gray-300'
+                        }`}
+                      >
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-1">
+                              {selectedOptionId === option.id && (
+                                <span className="text-blue-600">✓</span>
+                              )}
+                              {isTopChoice && !selectedOptionId && (
+                                <span className="text-red-600 text-xs font-semibold">BEST OPTION</span>
+                              )}
+                              <span className="font-semibold text-gray-900">{dateStr}</span>
+                            </div>
+                            <div className="text-sm text-gray-600 mb-2">{timeLabel}</div>
+                            <div className="flex gap-4 text-xs text-gray-500">
+                              <span>✓ {yesCount} yes</span>
+                              <span>? {maybeCount} maybe</span>
+                              <span className="font-medium">
+                                {totalVoters} {totalVoters === 1 ? 'voter' : 'voters'} will receive invite
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+
+              {/* Custom Time Selection - Only show if option is selected */}
+              {selectedOptionId && (
+                <div className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                  <label className="block text-sm font-medium text-gray-700 mb-3">
+                    Customize Event Time (optional):
+                  </label>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs text-gray-600 mb-1">Start Time</label>
+                      <input
+                        type="time"
+                        value={customStartTime}
+                        onChange={(e) => setCustomStartTime(e.target.value)}
+                        className="w-full px-3 py-2 bg-white text-gray-900 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-600 mb-1">End Time</label>
+                      <input
+                        type="time"
+                        value={customEndTime}
+                        onChange={(e) => setCustomEndTime(e.target.value)}
+                        className="w-full px-3 py-2 bg-white text-gray-900 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-2">
+                    Default times are shown above. Leave blank to use defaults.
+                  </p>
+                </div>
+              )}
+
+              {/* Creator Email Verification */}
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Enter your email to confirm:
+                </label>
+                <input
+                  type="email"
+                  value={creatorEmailForInvite}
+                  onChange={(e) => setCreatorEmailForInvite(e.target.value)}
+                  className="w-full px-3 py-2 bg-white text-gray-900 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder={poll.creator_email}
+                />
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex gap-3">
+                <button
+                  onClick={() => {
+                    setShowCalendarModal(false)
+                    setSelectedOptionId(null)
+                    setCreatorEmailForInvite('')
+                    setInviteResult(null)
+                    setCustomStartTime('')
+                    setCustomEndTime('')
+                  }}
+                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={sendCalendarInvites}
+                  disabled={isSendingInvites || !selectedOptionId || !creatorEmailForInvite.trim()}
+                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  {isSendingInvites ? 'Sending...' : '📅 Send Invites'}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

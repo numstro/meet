@@ -40,16 +40,15 @@ export default function CreatePollPage() {
   ] as const
 
   const addTimeOption = () => {
-    // Find the next available date that isn't already selected
-    const existingDates = new Set(timeOptions.map(option => option.date))
-    let nextDate = addDays(new Date(), 1)
-    let dateString = format(nextDate, 'yyyy-MM-dd')
+    // Find the latest date from existing options
+    const existingDates = timeOptions.map(option => new Date(option.date))
+    const latestDate = existingDates.length > 0 
+      ? new Date(Math.max(...existingDates.map(d => d.getTime())))
+      : new Date()
     
-    // Keep incrementing until we find a date that's not already selected
-    while (existingDates.has(dateString)) {
-      nextDate = addDays(nextDate, 1)
-      dateString = format(nextDate, 'yyyy-MM-dd')
-    }
+    // Add one day after the latest date
+    const nextDate = addDays(latestDate, 1)
+    const dateString = format(nextDate, 'yyyy-MM-dd')
     
     setTimeOptions([
       ...timeOptions,
@@ -254,7 +253,7 @@ export default function CreatePollPage() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto px-4 py-6">
+    <div className="max-w-5xl mx-auto px-4 py-6">
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-900 mb-2">
           Create New Poll
@@ -454,35 +453,36 @@ export default function CreatePollPage() {
             </button>
           </div>
 
-          <div className="overflow-x-auto border border-gray-200 rounded-lg">
-            <table className="w-full border-collapse min-w-[680px]">
+          <div className="border border-gray-200 rounded-lg overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse">
               <thead>
                 <tr className="bg-gray-50">
-                  <th className="text-left p-2 sm:p-3 border-r border-gray-200 font-medium w-48 sm:w-52">
+                  <th className="text-left p-3 border-r border-gray-200 font-medium" style={{ minWidth: '180px' }}>
                     Date
                   </th>
-                  <th className="text-center p-2 sm:p-3 border-r border-gray-200 font-medium w-24 sm:w-28">
+                  <th className="text-center p-3 border-r border-gray-200 font-medium" style={{ minWidth: '120px' }}>
                     🌅 Morning
                   </th>
-                  <th className="text-center p-2 sm:p-3 border-r border-gray-200 font-medium w-24 sm:w-28">
+                  <th className="text-center p-3 border-r border-gray-200 font-medium" style={{ minWidth: '120px' }}>
                     ☀️ Afternoon
                   </th>
-                  <th className="text-center p-2 sm:p-3 border-r border-gray-200 font-medium w-24 sm:w-28">
+                  <th className="text-center p-3 border-r border-gray-200 font-medium" style={{ minWidth: '120px' }}>
                     🌙 Evening
                   </th>
-                  <th className="text-center p-2 sm:p-3 font-medium w-12 sm:w-16">
+                  <th className="text-center p-3 font-medium" style={{ minWidth: '60px' }}>
                   </th>
                 </tr>
               </thead>
               <tbody>
                 {timeOptions.map((option, index) => (
                   <tr key={index} className="hover:bg-gray-50">
-                    <td className="p-2 sm:p-3 border-r border-b border-gray-200">
+                    <td className="p-3 border-r border-b border-gray-200">
                       <input
                         type="date"
                         value={option.date}
                         onChange={(e) => updateTimeOption(index, 'date', e.target.value)}
-                        className="w-full px-2 py-1.5 sm:px-3 sm:py-2 bg-white text-gray-900 text-sm sm:text-base border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-3 py-2 bg-white text-gray-900 text-base border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />
                       {option.date && (
                         <div className="text-xs text-gray-500 mt-1 whitespace-nowrap">
@@ -490,31 +490,31 @@ export default function CreatePollPage() {
                         </div>
                       )}
                     </td>
-                    <td className="p-2 sm:p-3 border-r border-b border-gray-200 text-center">
+                    <td className="p-3 border-r border-b border-gray-200 text-center">
                       <input
                         type="checkbox"
                         checked={option.timeBuckets.includes('morning')}
                         onChange={() => toggleTimeBucket(index, 'morning')}
-                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                        className="h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300 rounded cursor-pointer"
                       />
                     </td>
-                    <td className="p-2 sm:p-3 border-r border-b border-gray-200 text-center">
+                    <td className="p-3 border-r border-b border-gray-200 text-center">
                       <input
                         type="checkbox"
                         checked={option.timeBuckets.includes('afternoon')}
                         onChange={() => toggleTimeBucket(index, 'afternoon')}
-                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                        className="h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300 rounded cursor-pointer"
                       />
                     </td>
-                    <td className="p-2 sm:p-3 border-r border-b border-gray-200 text-center">
+                    <td className="p-3 border-r border-b border-gray-200 text-center">
                       <input
                         type="checkbox"
                         checked={option.timeBuckets.includes('evening')}
                         onChange={() => toggleTimeBucket(index, 'evening')}
-                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                        className="h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300 rounded cursor-pointer"
                       />
                     </td>
-                    <td className="p-2 sm:p-3 border-b border-gray-200 text-center">
+                    <td className="p-3 border-b border-gray-200 text-center">
                       {timeOptions.length > 1 && (
                         <button
                           type="button"
@@ -530,6 +530,7 @@ export default function CreatePollPage() {
                 ))}
               </tbody>
             </table>
+            </div>
           </div>
         </div>
 

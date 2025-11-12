@@ -294,12 +294,14 @@ export async function POST(request: NextRequest) {
           reply_to: poll.creator_email,
           subject: `📅 Calendar Invite: ${poll.title}`,
           // Add calendar invite as attachment
-          // Note: Resend auto-detects .ics files, but we can't set custom Content-Type header
-          // The METHOD:REQUEST in the .ics file itself should be sufficient for Gmail
+          // Set content_type explicitly for Gmail compatibility
+          // Note: TypeScript types don't include content_type, but Resend API supports it
           attachments: [
             {
               filename: 'invite.ics',
-              content: Buffer.from(icsContent).toString('base64')
+              content: Buffer.from(icsContent).toString('base64'),
+              // @ts-ignore - Resend API supports content_type but TypeScript types are incomplete
+              content_type: 'text/calendar; charset=UTF-8; method=REQUEST'
             }
           ],
           html: `

@@ -216,7 +216,7 @@ export default function PollPage() {
     try {
       const { data: existingResponses, error } = await supabase
         .from('poll_responses')
-        .select('*')
+        .select('id, poll_id, option_id, participant_name, participant_email, response, comment')
         .eq('poll_id', pollId)
         .eq('participant_email', email)
 

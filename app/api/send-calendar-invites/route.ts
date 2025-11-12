@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
-import { Resend } from 'resend'
+import nodemailer from 'nodemailer'
 import ical, { 
   ICalCalendarMethod, 
   ICalAttendeeStatus, 
@@ -272,78 +272,85 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Send emails with calendar invite using Resend
-    // Using Buffer.from() with UTF-8 encoding as per GitHub issue #278 solution
-    // This ensures the ICS content is properly interpreted by Gmail
-    if (!process.env.RESEND_API_KEY) {
+    // Send emails with calendar invite using Nodemailer with SMTP
+    // This gives us full control over email headers for Gmail compatibility
+    const smtpConfig = {
+      host: process.env.SMTP_HOST || 'smtp.gmail.com',
+      port: parseInt(process.env.SMTP_PORT || '587'),
+      secure: process.env.SMTP_SECURE === 'true', // true for 465, false for 587
+      auth: {
+        user: process.env.SMTP_USER || process.env.GMAIL_USER,
+        pass: process.env.SMTP_PASS || process.env.GMAIL_APP_PASSWORD
+      }
+    }
+
+    if (!smtpConfig.auth.user || !smtpConfig.auth.pass) {
       return NextResponse.json(
-        { error: 'Email service not configured' },
+        { error: 'SMTP not configured. Please set SMTP_USER and SMTP_PASS (or GMAIL_USER and GMAIL_APP_PASSWORD) environment variables.' },
         { status: 500 }
       )
     }
 
-    const resend = new Resend(process.env.RESEND_API_KEY)
-    const emailResults = []
+    // Create Nodemailer transporter
+    const transporter = nodemailer.createTransport(smtpConfig)
 
-    // Resend rate limit: 2 requests per second
-    // Add delay between emails to avoid rate limiting
+    const emailResults = []
+    const htmlContent = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #1f2937;">📅 Calendar Invite</h2>
+        
+        <p>Hi there,</p>
+        
+        <p><strong>${poll.creator_name}</strong> has scheduled the meeting based on your availability:</p>
+        
+        <div style="background: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
+          <h3 style="margin-top: 0; color: #111827;">${poll.title}</h3>
+          ${poll.description ? `<p style="color: #4b5563;">${poll.description}</p>` : ''}
+          
+          <div style="margin-top: 15px;">
+            <p style="margin: 5px 0;"><strong>📅 Date:</strong> ${dateStr}</p>
+            <p style="margin: 5px 0;"><strong>🕐 Time:</strong> ${timeStr}</p>
+            ${poll.location ? `<p style="margin: 5px 0;"><strong>📍 Location:</strong> ${poll.location}</p>` : ''}
+          </div>
+        </div>
+        
+        <p style="color: #6b7280; font-size: 14px;">
+          A calendar invite has been attached to this email. Please add it to your calendar.
+        </p>
+        
+        <div style="margin: 30px 0;">
+          <a href="${request.nextUrl.origin}/poll/${pollId}" 
+             style="background: #3b82f6; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
+            View Poll
+          </a>
+        </div>
+        
+        <p style="color: #9ca3af; font-size: 12px; margin-top: 30px;">
+          This invite was sent because you voted "yes" or "maybe" for this time slot.
+        </p>
+      </div>
+    `
+
+    // Send emails with rate limiting
     for (let i = 0; i < uniqueVoters.length; i++) {
       const voter = uniqueVoters[i]
       try {
-        await resend.emails.send({
+        await transporter.sendMail({
           from: 'Meetup <noreply@numstro.com>',
           to: voter.participant_email,
-          reply_to: poll.creator_email,
+          replyTo: poll.creator_email,
           subject: `📅 Calendar Invite: ${poll.title}`,
-          // Add calendar invite as attachment
-          // Match Resend example exactly: use string content (not Buffer) with content_type
+          html: htmlContent.replace('Hi there,', `Hi ${voter.participant_name || 'there'},`),
+          // Add calendar invite as attachment with proper Content-Type header
+          // Nodemailer gives us full control over headers for Gmail compatibility
           attachments: [
             {
               filename: 'invite.ics',
               content: icsContent,
-              // @ts-ignore - Resend supports content_type but TypeScript types may not include it yet
-              content_type: 'text/calendar; charset="UTF-8"; method=REQUEST'
+              contentType: 'text/calendar; charset=UTF-8; method=REQUEST',
+              contentDisposition: 'attachment'
             }
-          ],
-          // Add Content-Disposition header at email level (as per Resend example)
-          headers: {
-            'Content-Disposition': 'attachment; filename="invite.ics"'
-          },
-          html: `
-            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-              <h2 style="color: #1f2937;">📅 Calendar Invite</h2>
-              
-              <p>Hi ${voter.participant_name || 'there'},</p>
-              
-              <p><strong>${poll.creator_name}</strong> has scheduled the meeting based on your availability:</p>
-              
-              <div style="background: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
-                <h3 style="margin-top: 0; color: #111827;">${poll.title}</h3>
-                ${poll.description ? `<p style="color: #4b5563;">${poll.description}</p>` : ''}
-                
-                <div style="margin-top: 15px;">
-                  <p style="margin: 5px 0;"><strong>📅 Date:</strong> ${dateStr}</p>
-                  <p style="margin: 5px 0;"><strong>🕐 Time:</strong> ${timeStr}</p>
-                  ${poll.location ? `<p style="margin: 5px 0;"><strong>📍 Location:</strong> ${poll.location}</p>` : ''}
-                </div>
-              </div>
-              
-              <p style="color: #6b7280; font-size: 14px;">
-                A calendar invite has been attached to this email. Please add it to your calendar.
-              </p>
-              
-              <div style="margin: 30px 0;">
-                <a href="${request.nextUrl.origin}/poll/${pollId}" 
-                   style="background: #3b82f6; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
-                  View Poll
-                </a>
-              </div>
-              
-              <p style="color: #9ca3af; font-size: 12px; margin-top: 30px;">
-                This invite was sent because you voted "yes" or "maybe" for this time slot.
-              </p>
-            </div>
-          `
+          ]
         })
         
         emailResults.push({ email: voter.participant_email, success: true })
@@ -352,10 +359,11 @@ export async function POST(request: NextRequest) {
         emailResults.push({ 
           email: voter.participant_email, 
           success: false, 
+          error: emailErr.message
         })
       }
       
-      // Rate limiting: wait 600ms between emails (allows ~1.67 requests/second, under the 2/sec limit)
+      // Rate limiting: wait 600ms between emails
       // Only wait if not the last email
       if (i < uniqueVoters.length - 1) {
         await new Promise(resolve => setTimeout(resolve, 600))

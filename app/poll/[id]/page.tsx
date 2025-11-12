@@ -856,7 +856,7 @@ export default function PollPage() {
                                         </div>
                                       ))}
                                     </div>
-                                    <div className="absolute -bottom-1 sm:-bottom-1 sm:-top-1 left-1/2 transform -translate-x-1/2 w-2 h-2 bg-gray-900 rotate-45"></div>
+                                    <div className="absolute -bottom-1 sm:-top-1 left-1/2 transform -translate-x-1/2 w-2 h-2 bg-gray-900 rotate-45"></div>
                                   </div>
                                 </div>
                               )}

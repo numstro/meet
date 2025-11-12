@@ -71,10 +71,17 @@ export default function CreatePollPage() {
       if (tableRef.current) {
         const tableContainer = tableRef.current.closest('.overflow-x-auto')
         if (tableContainer) {
-          tableContainer.scrollIntoView({ behavior: 'smooth', block: 'end' })
+          // Scroll the page to show the new row, with more offset
+          const newRow = tableRef.current.querySelector('tbody tr:last-child')
+          if (newRow) {
+            newRow.scrollIntoView({ behavior: 'smooth', block: 'center' })
+          } else {
+            // Fallback: scroll the container
+            tableContainer.scrollIntoView({ behavior: 'smooth', block: 'end' })
+          }
         }
       }
-    }, 100)
+    }, 150)
   }
 
   const updateTimeOption = (index: number, field: keyof TimeOption, value: string) => {

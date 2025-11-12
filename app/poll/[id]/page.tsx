@@ -31,6 +31,7 @@ interface PollResponse {
   participant_name: string
   participant_email: string
   response: 'yes' | 'no' | 'maybe'
+  comment?: string | null
 }
 
 interface PollSummary {
@@ -61,6 +62,8 @@ export default function PollPage() {
   const [participantName, setParticipantName] = useState('')
   const [participantEmail, setParticipantEmail] = useState('')
   const [userResponses, setUserResponses] = useState<Record<string, 'yes' | 'no' | 'maybe'>>({})
+  const [userComments, setUserComments] = useState<Record<string, string>>({}) // optionId -> comment
+  const [expandedComments, setExpandedComments] = useState<Record<string, boolean>>({}) // optionId -> isExpanded
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [hasVoted, setHasVoted] = useState(false)
   const [isEditingVotes, setIsEditingVotes] = useState(false)
@@ -227,12 +230,17 @@ export default function PollPage() {
         setExistingVoterEmail(email)
         setHasVoted(true)
 
-        // Load their existing responses
+        // Load their existing responses and comments
         const responseMap: Record<string, 'yes' | 'no' | 'maybe'> = {}
+        const commentMap: Record<string, string> = {}
         existingResponses.forEach((response: PollResponse) => {
           responseMap[response.option_id] = response.response as 'yes' | 'no' | 'maybe'
+          if (response.comment) {
+            commentMap[response.option_id] = response.comment
+          }
         })
         setUserResponses(responseMap)
+        setUserComments(commentMap)
       }
     } catch (err) {
       console.error('Error checking existing votes:', err)
@@ -244,6 +252,24 @@ export default function PollPage() {
       ...prev,
       [optionId]: response
     }))
+    // Auto-expand comment field when a vote is selected
+    if (response && !expandedComments[optionId]) {
+      setExpandedComments(prev => ({ ...prev, [optionId]: true }))
+    }
+  }
+
+  const handleCommentChange = (optionId: string, comment: string) => {
+    setUserComments(prev => ({
+      ...prev,
+      [optionId]: comment
+    }))
+  }
+
+  const toggleCommentField = (optionId: string) => {
+    setExpandedComments(prev => ({
+      ...prev,
+      [optionId]: !prev[optionId]
+    }))
   }
 
   const startEditingVotes = () => {
@@ -254,8 +280,10 @@ export default function PollPage() {
   const cancelEditingVotes = () => {
     setIsEditingVotes(false)
     setHasVoted(true) // Go back to "thank you" state
-    // Reload their original responses
+    // Reload their original responses and comments
     checkExistingVotes(existingVoterEmail)
+    // Clear expanded comments
+    setExpandedComments({})
   }
 
   const submitVote = async (e: React.FormEvent) => {
@@ -270,7 +298,8 @@ export default function PollPage() {
         option_id: optionId,
         participant_name: participantName,
         participant_email: participantEmail,
-        response
+        response,
+        comment: userComments[optionId]?.trim() || null
       }))
 
       if (responsesToUpsert.length > 0) {
@@ -741,22 +770,57 @@ export default function PollPage() {
                           const bestOptions = getBestOptions()
                           const isTopChoice = bestOptions.some(best => best.option_id === option.id)
                           
+                          // Get all comments for this time slot (from all participants)
+                          const optionComments = responses
+                            .filter(r => r.option_id === option.id && r.comment?.trim())
+                            .map(r => ({
+                              name: r.participant_name,
+                              vote: r.response,
+                              comment: r.comment!
+                            }))
+                          const hasComments = optionComments.length > 0
+                          
                           return (
-                            <td key={option.id} className={`text-center p-2 border-r border-b border-gray-200 ${isTopChoice ? 'bg-red-50' : ''}`}>
-                              {response && (
-                                <div className={`w-8 h-8 rounded-full flex items-center justify-center mx-auto text-sm font-bold ${
-                                  response.response === 'yes' 
-                                    ? 'bg-green-500 text-white' 
-                                    : response.response === 'maybe'
-                                    ? 'bg-yellow-400 text-white'
-                                    : 'bg-gray-300 text-gray-600'
-                                }`}>
-                                  {response.response === 'yes' 
-                                    ? '✓' 
-                                    : response.response === 'maybe'
-                                    ? '?'
-                                    : '✗'
-                                  }
+                            <td key={option.id} className={`text-center p-2 border-r border-b border-gray-200 ${isTopChoice ? 'bg-red-50' : ''} relative group`}>
+                              <div className="flex items-center justify-center gap-1">
+                                {response && (
+                                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
+                                    response.response === 'yes' 
+                                      ? 'bg-green-500 text-white' 
+                                      : response.response === 'maybe'
+                                      ? 'bg-yellow-400 text-white'
+                                      : 'bg-gray-300 text-gray-600'
+                                  }`}>
+                                    {response.response === 'yes' 
+                                      ? '✓' 
+                                      : response.response === 'maybe'
+                                      ? '?'
+                                      : '✗'
+                                    }
+                                  </div>
+                                )}
+                                {hasComments && (
+                                  <span className="text-xs opacity-60">💬</span>
+                                )}
+                              </div>
+                              
+                              {/* Hover tooltip for comments */}
+                              {hasComments && (
+                                <div className="absolute left-1/2 top-full mt-2 transform -translate-x-1/2 z-50 hidden group-hover:block">
+                                  <div className="bg-gray-900 text-white text-xs rounded-lg shadow-lg p-3 min-w-[200px] max-w-[300px]">
+                                    <div className="font-semibold mb-2">💬 Comments:</div>
+                                    <div className="space-y-2">
+                                      {optionComments.map((c, idx) => (
+                                        <div key={idx} className="border-t border-gray-700 pt-2 first:border-t-0 first:pt-0">
+                                          <div className="font-medium">
+                                            {c.name} ({c.vote === 'yes' ? '✓' : c.vote === 'maybe' ? '?' : '✗'})
+                                          </div>
+                                          <div className="text-gray-300 mt-1">{c.comment}</div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                    <div className="absolute -top-1 left-1/2 transform -translate-x-1/2 w-2 h-2 bg-gray-900 rotate-45"></div>
+                                  </div>
                                 </div>
                               )}
                             </td>
@@ -901,28 +965,65 @@ export default function PollPage() {
                       </td>
                       {options.map((option) => {
                         const currentResponse = userResponses[option.id]
+                        const hasComment = userComments[option.id]?.trim()
+                        const isCommentExpanded = expandedComments[option.id]
                         
                         return (
                           <td key={option.id} className="text-center p-2 border-r border-b border-gray-200">
-                            <div className="flex flex-col space-y-1">
-                              {(['yes', 'maybe', 'no'] as const).map((response) => (
-                                <button
-                                  key={response}
-                                  type="button"
-                                  onClick={() => handleResponseChange(option.id, response)}
-                                  className={`w-8 h-8 rounded-full flex items-center justify-center mx-auto text-sm font-bold transition-colors ${
-                                    currentResponse === response
-                                      ? response === 'yes' 
-                                        ? 'bg-green-500 text-white border-2 border-green-600' 
-                                        : response === 'maybe'
-                                        ? 'bg-yellow-400 text-white border-2 border-yellow-500'
-                                        : 'bg-gray-400 text-white border-2 border-gray-500'
-                                      : 'bg-gray-100 text-gray-400 hover:bg-gray-200 border border-gray-300'
-                                  }`}
-                                >
-                                  {response === 'yes' ? '✓' : response === 'maybe' ? '?' : '✗'}
-                                </button>
-                              ))}
+                            <div className="flex flex-col space-y-2">
+                              <div className="flex flex-col space-y-1">
+                                {(['yes', 'maybe', 'no'] as const).map((response) => (
+                                  <button
+                                    key={response}
+                                    type="button"
+                                    onClick={() => handleResponseChange(option.id, response)}
+                                    className={`w-8 h-8 rounded-full flex items-center justify-center mx-auto text-sm font-bold transition-colors ${
+                                      currentResponse === response
+                                        ? response === 'yes' 
+                                          ? 'bg-green-500 text-white border-2 border-green-600' 
+                                          : response === 'maybe'
+                                          ? 'bg-yellow-400 text-white border-2 border-yellow-500'
+                                          : 'bg-gray-400 text-white border-2 border-gray-500'
+                                        : 'bg-gray-100 text-gray-400 hover:bg-gray-200 border border-gray-300'
+                                    }`}
+                                  >
+                                    {response === 'yes' ? '✓' : response === 'maybe' ? '?' : '✗'}
+                                  </button>
+                                ))}
+                              </div>
+                              
+                              {/* Comment field - expandable */}
+                              {currentResponse && (
+                                <div className="mt-1">
+                                  {isCommentExpanded ? (
+                                    <div className="space-y-1">
+                                      <textarea
+                                        value={userComments[option.id] || ''}
+                                        onChange={(e) => handleCommentChange(option.id, e.target.value)}
+                                        placeholder="Add a comment (optional)"
+                                        maxLength={200}
+                                        rows={2}
+                                        className="w-full px-2 py-1 text-xs bg-white text-gray-900 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 resize-none"
+                                      />
+                                      <button
+                                        type="button"
+                                        onClick={() => toggleCommentField(option.id)}
+                                        className="text-xs text-gray-500 hover:text-gray-700"
+                                      >
+                                        Hide
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      onClick={() => toggleCommentField(option.id)}
+                                      className="text-xs text-gray-500 hover:text-gray-700 flex items-center gap-1 mx-auto"
+                                    >
+                                      {hasComment ? '💬 Edit comment' : '[+] Add comment'}
+                                    </button>
+                                  )}
+                                </div>
+                              )}
                             </div>
                           </td>
                         )

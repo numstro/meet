@@ -173,10 +173,10 @@ export default function PollPage() {
       
       setOptions(sortedOptions)
 
-      // Load responses
+      // Load responses (explicitly include comment field if it exists)
       const { data: responsesData, error: responsesError } = await supabase
         .from('poll_responses')
-        .select('*')
+        .select('id, poll_id, option_id, participant_name, participant_email, response, comment')
         .eq('poll_id', pollId)
 
       if (responsesError) throw responsesError
@@ -1022,10 +1022,15 @@ export default function PollPage() {
                                   <button
                                     type="button"
                                     onClick={() => toggleCommentField(option.id)}
-                                    className="text-xs text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1 mx-auto"
+                                    className={`text-xs hover:underline flex items-center gap-1 mx-auto ${
+                                      hasComment 
+                                        ? 'text-blue-700 font-medium' 
+                                        : 'text-blue-600 hover:text-blue-800'
+                                    }`}
                                     title={hasComment ? `Comment: ${userComments[option.id]}` : 'Add a comment'}
                                   >
-                                    {hasComment ? `💬 Edit comment (${userComments[option.id]?.length || 0} chars)` : '💬 Add comment'}
+                                    {hasComment ? '💬' : '💭'}
+                                    <span className="ml-1">{hasComment ? 'Edit comment' : 'Add comment'}</span>
                                   </button>
                                   
                                   {/* Popover for comment - positioned above if near bottom of viewport */}

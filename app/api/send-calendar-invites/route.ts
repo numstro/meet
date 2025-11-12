@@ -246,11 +246,11 @@ export async function POST(request: NextRequest) {
       sequence: 0
     })
 
-    // Generate .ics file content
+    // Generate .ics file content with proper line folding
+    // Use ical-generator to create the structure, but manually format to ensure proper folding
     let icsContent = calendar.toString()
     
     // Ensure CALSCALE:GREGORIAN is present (Gmail-friendly)
-    // Check if it's already there, if not add it after VERSION
     if (!icsContent.includes('CALSCALE:GREGORIAN')) {
       icsContent = icsContent.replace(
         /(VERSION:2\.0)/,
@@ -258,56 +258,67 @@ export async function POST(request: NextRequest) {
       )
     }
     
-    // Ensure CRLF line endings (Gmail-friendly)
-    // ical-generator should use CRLF, but ensure it
+    // Ensure CRLF line endings
     if (!icsContent.includes('\r\n')) {
       icsContent = icsContent.replace(/\n/g, '\r\n')
     }
     
-    // Fix line folding: ICS spec requires lines >75 chars to be folded with CRLF + space
-    // First, unfold any existing folded lines (lines starting with space/tab are continuations)
-    const unfoldedLines: string[] = []
-    let currentLine = ''
+    // Completely unfold all lines first (handle any existing folding)
+    const allLines = icsContent.split(/\r\n/)
+    const unfolded: string[] = []
+    let currentUnfolded = ''
     
-    for (const line of icsContent.split(/\r\n/)) {
-      // Check if this is a continuation line (starts with space or tab)
+    for (const line of allLines) {
       const trimmed = line.trimStart()
-      if (trimmed !== line && currentLine) {
-        // This is a continuation line - append to current line (trim all leading whitespace)
-        currentLine += trimmed
+      if (trimmed !== line && currentUnfolded) {
+        // Continuation line - append without leading whitespace
+        currentUnfolded += trimmed
       } else {
-        // New line - save previous and start new
-        if (currentLine) {
-          unfoldedLines.push(currentLine)
+        // New line
+        if (currentUnfolded) {
+          unfolded.push(currentUnfolded)
         }
-        currentLine = line
+        currentUnfolded = line
       }
     }
-    if (currentLine) {
-      unfoldedLines.push(currentLine)
+    if (currentUnfolded) {
+      unfolded.push(currentUnfolded)
     }
     
-    // Now properly fold lines that are >75 characters
-    const foldedLines: string[] = []
-    for (const line of unfoldedLines) {
+    // Now properly fold lines >75 characters according to RFC 5545
+    // Break at safe points (after semicolons, colons, or commas when possible)
+    const properlyFolded: string[] = []
+    
+    for (const line of unfolded) {
       if (line.length <= 75) {
-        foldedLines.push(line)
+        properlyFolded.push(line)
       } else {
-        // Fold long lines: break at 75 chars, continue with space on next line
+        // Fold long lines - try to break at safe points first
         let remaining = line
         while (remaining.length > 0) {
           if (remaining.length <= 75) {
-            foldedLines.push(remaining)
+            properlyFolded.push(remaining)
             break
           }
-          // Take first 75 chars, then continue with space on next line
-          foldedLines.push(remaining.substring(0, 75))
-          remaining = ' ' + remaining.substring(75) // Space indicates continuation
+          
+          // Try to find a safe break point (semicolon, colon, or comma) within last 20 chars
+          let breakPoint = 75
+          const searchStart = Math.max(55, remaining.length - 20)
+          for (let i = 74; i >= searchStart; i--) {
+            if (remaining[i] === ';' || remaining[i] === ':' || remaining[i] === ',') {
+              breakPoint = i + 1
+              break
+            }
+          }
+          
+          // Break at the chosen point
+          properlyFolded.push(remaining.substring(0, breakPoint))
+          remaining = ' ' + remaining.substring(breakPoint) // Space for continuation
         }
       }
     }
     
-    icsContent = foldedLines.join('\r\n')
+    icsContent = properlyFolded.join('\r\n')
     
     // Validate .ics content is not empty
     if (!icsContent || icsContent.trim().length === 0) {

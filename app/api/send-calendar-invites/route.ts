@@ -164,16 +164,16 @@ export async function POST(request: NextRequest) {
 
     // Create calendar event with explicit timezone
     // Use the user's detected timezone to ensure times are interpreted correctly by Gmail/calendar apps
-    // Note: Not using METHOD:REQUEST as it can cause Gmail to not recognize the invite
+    // METHOD:REQUEST is required for Gmail to recognize this as an interactive meeting invite
     const calendar = ical({ 
       name: poll.title,
       timezone: validTimezone,
+      method: ICalCalendarMethod.REQUEST, // Required for Gmail to render inline event card
       prodId: {
         company: 'Numstro',
         product: 'Meet',
         language: 'EN'
       }
-      // Omitting method property - Gmail works better without METHOD:REQUEST
     })
     
     const event = calendar.createEvent({
@@ -198,7 +198,9 @@ export async function POST(request: NextRequest) {
       status: ICalEventStatus.CONFIRMED,
       busystatus: ICalEventBusyStatus.BUSY,
       // Add unique ID to ensure Gmail recognizes it as a unique event
-      id: `${pollId}-${optionId}-${Date.now()}@${request.nextUrl.hostname}`
+      id: `${pollId}-${optionId}-${Date.now()}@${request.nextUrl.hostname}`,
+      // Sequence number for updates/cancellations (start at 0, increment on changes)
+      sequence: 0
     })
 
     // Generate .ics file content
@@ -233,12 +235,13 @@ export async function POST(request: NextRequest) {
           to: voter.participant_email,
           reply_to: poll.creator_email,
           subject: `📅 Calendar Invite: ${poll.title}`,
-          // Add calendar invite as attachment
-          // Resend will automatically detect .ics files and set appropriate content type
+          // Add calendar invite as attachment with explicit Content-Type
+          // Gmail requires both METHOD:REQUEST in the .ics file AND the Content-Type header
           attachments: [
             {
               filename: 'invite.ics',
-              content: Buffer.from(icsContent).toString('base64')
+              content: Buffer.from(icsContent).toString('base64'),
+              contentType: 'text/calendar; method=REQUEST; charset=UTF-8'
             }
           ],
           html: `

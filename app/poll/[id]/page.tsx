@@ -64,6 +64,7 @@ export default function PollPage() {
   const [userResponses, setUserResponses] = useState<Record<string, 'yes' | 'no' | 'maybe'>>({})
   const [userComments, setUserComments] = useState<Record<string, string>>({}) // optionId -> comment
   const [expandedComments, setExpandedComments] = useState<Record<string, boolean>>({}) // optionId -> isExpanded
+  const [openCommentTooltip, setOpenCommentTooltip] = useState<string | null>(null) // optionId -> track which tooltip is open on mobile
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [hasVoted, setHasVoted] = useState(false)
   const [isEditingVotes, setIsEditingVotes] = useState(false)

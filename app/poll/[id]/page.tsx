@@ -126,6 +126,8 @@ export default function PollPage() {
     if (creatorName && creatorEmail) {
       setParticipantName(creatorName)
       setParticipantEmail(creatorEmail)
+      // Auto-fill creator email for calendar invites if they're the creator
+      setCreatorEmailForInvite(creatorEmail)
       
       // Clear the URL params after setting them (optional, for cleaner URLs)
       const url = new URL(window.location.href)
@@ -527,7 +529,7 @@ export default function PollPage() {
     }
 
     if (creatorEmailForInvite.toLowerCase() !== poll.creator_email.toLowerCase()) {
-      setErrorMessage('Please enter the correct creator email address')
+      setErrorMessage('Only the poll creator can send calendar invites. Please enter the creator\'s email address.')
       setShowErrorModal(true)
       return
     }
@@ -1462,7 +1464,7 @@ export default function PollPage() {
               {/* Creator Email Verification */}
               <div className="mb-6">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Enter your email to confirm:
+                  Creator Email (required):
                 </label>
                 <input
                   type="email"
@@ -1471,6 +1473,9 @@ export default function PollPage() {
                   className="w-full px-3 py-2 bg-white text-gray-900 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder={poll.creator_email}
                 />
+                <p className="mt-1 text-xs text-gray-500">
+                  Only the poll creator ({poll.creator_email}) can send calendar invites.
+                </p>
               </div>
 
               {/* Action Buttons */}

@@ -63,7 +63,7 @@ export async function POST(request: NextRequest) {
 
     if (pollError || !poll) {
       return NextResponse.json(
-        { error: 'Unauthorized: Only the poll creator can send calendar invites' },
+        { error: 'Unauthorized: Only the poll creator can send calendar invites. The email you entered does not match the poll creator\'s email.' },
         { status: 403 }
       )
     }

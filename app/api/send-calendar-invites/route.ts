@@ -293,205 +293,43 @@ export async function POST(request: NextRequest) {
     // Add TRANSP:OPAQUE property (indicates event blocks time, like Google Calendar)
     // This is not directly supported by ical-generator, so we'll add it manually after generation
 
-    // Generate .ics file content with proper line folding
-    // Use ical-generator to create the structure, but manually format to ensure proper folding
+    // Generate .ics file content - keep it simple!
     let icsContent = calendar.toString()
     
-    // Remove invalid properties that ical-generator might add
-    // NAME: is NOT a valid ICS property and causes Gmail to reject the file
+    // Essential fixes only:
+    // 1. Remove invalid NAME property (causes Gmail to reject)
     icsContent = icsContent.replace(/^NAME:.*$/gm, '')
-    // X-WR-CALNAME is non-standard and might confuse Gmail
-    icsContent = icsContent.replace(/^X-WR-CALNAME:.*$/gm, '')
     
-    // Remove non-standard timezone properties (VTIMEZONE block is the correct way)
-    // TIMEZONE-ID and X-WR-TIMEZONE are non-standard and might confuse Gmail
+    // 2. Remove non-standard timezone properties (VTIMEZONE is the standard way)
     icsContent = icsContent.replace(/^TIMEZONE-ID:.*$/gm, '')
     icsContent = icsContent.replace(/^X-WR-TIMEZONE:.*$/gm, '')
     
-    // Remove empty DESCRIPTION lines (DESCRIPTION: with no value)
-    icsContent = icsContent.replace(/^DESCRIPTION:\s*$/gm, '')
-    
-    // Ensure VTIMEZONE block is present (critical for Gmail)
-    // If it's missing, manually inject it using getVtimezoneComponent
+    // 3. Ensure VTIMEZONE block is present (critical for Gmail to parse TZID)
     if (!icsContent.includes('BEGIN:VTIMEZONE')) {
-      console.error('[ICS Generation] WARNING: VTIMEZONE block is missing! Manually injecting...')
-      try {
-        // Generate VTIMEZONE block manually
-        const vtimezoneBlock = getVtimezoneComponent(validTimezone)
-        console.log('[ICS Generation] Generated VTIMEZONE block for timezone:', validTimezone)
-        
-        // getVtimezoneComponent returns a string, not an object
-        // Convert to string and ensure CRLF line endings
-        let vtimezoneString = typeof vtimezoneBlock === 'string' 
-          ? vtimezoneBlock 
-          : vtimezoneBlock.toString()
-        
-        // Ensure CRLF line endings
-        vtimezoneString = vtimezoneString.replace(/\r\n/g, '\n').replace(/\n/g, '\r\n')
-        
-        // Insert VTIMEZONE block after METHOD:REQUEST and before BEGIN:VEVENT
-        // Format: METHOD:REQUEST\r\n[VTIMEZONE block]\r\nBEGIN:VEVENT
-        // Try multiple regex patterns to handle different line ending scenarios
-        if (vtimezoneString && vtimezoneString.includes('BEGIN:VTIMEZONE')) {
-          // Try CRLF first (standard)
-          let replaced = icsContent.replace(
-            /(METHOD:REQUEST\r\n)/,
-            `$1${vtimezoneString}\r\n`
-          )
-          
-          // If that didn't work, try LF (Unix)
-          if (replaced === icsContent) {
-            replaced = icsContent.replace(
-              /(METHOD:REQUEST\n)/,
-              `$1${vtimezoneString.replace(/\r\n/g, '\n')}\n`
-            )
-            // Convert back to CRLF
-            if (replaced !== icsContent) {
-              replaced = replaced.replace(/\n/g, '\r\n')
-            }
-          }
-          
-          icsContent = replaced
-          console.log('[ICS Generation] Successfully injected VTIMEZONE block')
-          
-          // Verify it was inserted
-          if (!icsContent.includes('BEGIN:VTIMEZONE')) {
-            console.error('[ICS Generation] ERROR: VTIMEZONE block injection failed - block not found after insertion!')
-            console.error('[ICS Generation] ICS content preview:', icsContent.substring(0, 500))
-          } else {
-            console.log('[ICS Generation] Verified: VTIMEZONE block is now present')
-          }
-        } else {
-          console.error('[ICS Generation] ERROR: Generated VTIMEZONE block is invalid:', vtimezoneString?.substring(0, 100))
-        }
-      } catch (error) {
-        console.error('[ICS Generation] Failed to inject VTIMEZONE block:', error)
-        // If we can't inject VTIMEZONE, Gmail won't be able to parse TZID references
-        // This is a critical error - the ICS file won't work without it
-      }
-    } else {
-      console.log('[ICS Generation] VTIMEZONE block is present in ICS file')
+      const vtimezone = getVtimezoneComponent(validTimezone)
+      const vtimezoneString = String(vtimezone).replace(/\r\n/g, '\n').replace(/\n/g, '\r\n')
+      icsContent = icsContent.replace(/(METHOD:REQUEST[\r\n]+)/, `$1${vtimezoneString}\r\n`)
     }
     
-    // Fix ORGANIZER format: Remove quotes around CN value (Google Calendar doesn't use quotes)
-    // Change: ORGANIZER;CN="name":mailto:... to ORGANIZER;CN=name:mailto:...
+    // 4. Fix ORGANIZER/ATTENDEE format (remove quotes to match Google)
     icsContent = icsContent.replace(/ORGANIZER;CN="([^"]+)":/g, 'ORGANIZER;CN=$1:')
-    
-    // Fix ATTENDEE format: Remove quotes around CN value (Google Calendar doesn't use quotes)
-    // Change: CN="name":MAILTO:... to CN=name:MAILTO:...
     icsContent = icsContent.replace(/CN="([^"]+)":MAILTO:/g, 'CN=$1:MAILTO:')
     
-    // Ensure CALSCALE:GREGORIAN is present (Gmail-friendly)
+    // 5. Ensure CRLF line endings
+    icsContent = icsContent.replace(/\r\n/g, '\n').replace(/\n/g, '\r\n')
+    
+    // 6. Add CALSCALE if missing
     if (!icsContent.includes('CALSCALE:GREGORIAN')) {
-      icsContent = icsContent.replace(
-        /(VERSION:2\.0)/,
-        '$1\r\nCALSCALE:GREGORIAN'
-      )
+      icsContent = icsContent.replace(/(VERSION:2\.0\r\n)/, '$1CALSCALE:GREGORIAN\r\n')
     }
     
-    // Ensure CRLF line endings
-    if (!icsContent.includes('\r\n')) {
-      icsContent = icsContent.replace(/\n/g, '\r\n')
+    // 7. Add TRANSP:OPAQUE before END:VEVENT (if not present)
+    if (!icsContent.includes('TRANSP:') && icsContent.includes('STATUS:CONFIRMED')) {
+      icsContent = icsContent.replace(/(STATUS:CONFIRMED\r\n)/, '$1TRANSP:OPAQUE\r\n')
     }
     
-    // Remove any double line breaks caused by removing properties
-    icsContent = icsContent.replace(/\r\n\r\n\r\n/g, '\r\n\r\n')
-    
-    // Add TRANSP:OPAQUE property (like Google Calendar) if not present
-    // This indicates the event blocks time (vs TRANSPARENT for free time)
-    // Insert it before END:VEVENT
-    if (!icsContent.includes('TRANSP:')) {
-      icsContent = icsContent.replace(
-        /(STATUS:CONFIRMED\r\n)/,
-        '$1TRANSP:OPAQUE\r\n'
-      )
-    }
-    
-    // Completely unfold all lines first (handle any existing folding)
-    // ICS spec: continuation lines start with space or tab
-    const allLines = icsContent.split(/\r\n/)
-    const unfolded: string[] = []
-    let currentUnfolded = ''
-    
-    for (let i = 0; i < allLines.length; i++) {
-      const line = allLines[i]
-      
-      // Check if this is a continuation line (starts with space or tab)
-      if ((line.startsWith(' ') || line.startsWith('\t')) && currentUnfolded) {
-        // Continuation line - append without leading whitespace
-        currentUnfolded += line.substring(1) // Remove first space/tab
-      } else {
-        // New logical line - save previous and start new
-        if (currentUnfolded) {
-          unfolded.push(currentUnfolded)
-        }
-        currentUnfolded = line
-      }
-    }
-    // Don't forget the last line
-    if (currentUnfolded) {
-      unfolded.push(currentUnfolded)
-    }
-    
-    // Now properly fold lines >75 characters according to RFC 5545
-    // Break at safe points (after semicolons, colons, or commas when possible)
-    // NEVER break right after = sign (would split property values)
-    const properlyFolded: string[] = []
-    
-    for (const line of unfolded) {
-      if (line.length <= 75) {
-        properlyFolded.push(line)
-      } else {
-        // Fold long lines - try to break at safe points first
-        let remaining = line
-        while (remaining.length > 0) {
-          if (remaining.length <= 75) {
-            properlyFolded.push(remaining)
-            break
-          }
-          
-          // Try to find a safe break point (semicolon, colon, or comma) before position 75
-          // Avoid breaking right after = sign (would split property values like RSVP=TRUE)
-          let breakPoint = 75
-          
-          // Search backwards from position 74 to find the last safe break point
-          // Look for semicolons, colons, or commas (but not right after =)
-          for (let i = 74; i >= 55; i--) {
-            // Don't break right after = (would split property values like RSVP=TRUE)
-            if (remaining[i] === '=') {
-              continue // Skip this position, keep searching backwards
-            }
-            // Found a safe break point
-            if (remaining[i] === ';' || remaining[i] === ':' || remaining[i] === ',') {
-              breakPoint = i + 1
-              break
-            }
-          }
-          
-          // Double-check: make sure we're not breaking right after =
-          // If we are, move back to the previous semicolon or break earlier
-          if (remaining[breakPoint - 1] === '=') {
-            // Search backwards for the previous semicolon
-            for (let i = breakPoint - 2; i >= 55; i--) {
-              if (remaining[i] === ';') {
-                breakPoint = i + 1
-                break
-              }
-            }
-            // If no semicolon found, break earlier to avoid splitting after =
-            if (remaining[breakPoint - 1] === '=') {
-              breakPoint = Math.max(55, breakPoint - 5) // Move back a bit
-            }
-          }
-          
-          // Break at the chosen point
-          properlyFolded.push(remaining.substring(0, breakPoint))
-          remaining = ' ' + remaining.substring(breakPoint) // Space for continuation
-        }
-      }
-    }
-    
-    icsContent = properlyFolded.join('\r\n')
+    // Clean up any extra blank lines
+    icsContent = icsContent.replace(/\r\n\r\n\r\n+/g, '\r\n\r\n')
     
     // Validate .ics content is not empty
     if (!icsContent || icsContent.trim().length === 0) {

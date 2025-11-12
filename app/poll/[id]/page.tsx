@@ -1154,8 +1154,8 @@ export default function PollPage() {
               <label className="block text-sm font-medium text-gray-700 mb-3">
                 Proposed Date and Time Options *
               </label>
-              <div className="overflow-x-auto border border-gray-200 rounded-lg">
-                <table className="w-full border-collapse">
+              <div className="overflow-x-auto border border-gray-200 rounded-lg" style={{ overscrollBehavior: 'contain' }}>
+                <table className="w-full border-collapse" style={{ minWidth: 'fit-content' }}>
                   <thead>
                     <tr className="bg-gray-50">
                       <th className="text-left p-3 border-r border-gray-200 font-medium w-48">

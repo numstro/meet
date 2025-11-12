@@ -209,9 +209,10 @@ export async function POST(request: NextRequest) {
     }
     const timeStr = `${formatTime(start)} - ${formatTime(end)}`
 
-    // Create calendar event - use UTC times (Gmail can parse these without VTIMEZONE)
-    // UTC is universally parseable and doesn't require VTIMEZONE blocks
+    // Create calendar event - match Google Calendar's exact format
+    // Google uses TZID format with VTIMEZONE blocks
     const calendar = ical({ 
+      timezone: validTimezone,
       method: ICalCalendarMethod.REQUEST,
       prodId: {
         company: 'Numstro',
@@ -220,11 +221,11 @@ export async function POST(request: NextRequest) {
       }
     })
     
-    // Build event data - use UTC times (no timezone property = UTC)
+    // Build event data - match Google Calendar's format exactly
     const eventData: any = {
       start,
       end,
-      // Don't specify timezone - ical-generator will use UTC
+      timezone: validTimezone, // Use TZID format like Google
       summary: poll.title,
       location: poll.location || undefined,
       url: `${request.nextUrl.origin}/poll/${pollId}`,
@@ -262,9 +263,109 @@ export async function POST(request: NextRequest) {
     icsContent = icsContent.replace(/ORGANIZER;CN="([^"]+)":/g, 'ORGANIZER;CN=$1:')
     icsContent = icsContent.replace(/CN="([^"]+)":MAILTO:/g, 'CN=$1:MAILTO:')
     
-    // 3. Remove VTIMEZONE blocks (not needed with UTC times, and Gmail can parse UTC without them)
-    // UTC times are universally parseable and don't require VTIMEZONE definitions
-    icsContent = icsContent.replace(/BEGIN:VTIMEZONE[\s\S]*?END:VTIMEZONE\r?\n?/g, '')
+    // 3. Ensure VTIMEZONE block is present (Google Calendar includes this, and TZID format requires it)
+    // Match Google Calendar's exact VTIMEZONE format
+    if (!icsContent.includes('BEGIN:VTIMEZONE')) {
+      // Generate VTIMEZONE block matching Google Calendar's exact format
+      const generateVTIMEZONE = (tzid: string): string => {
+        const timezones: Record<string, string> = {
+          'America/Los_Angeles': `BEGIN:VTIMEZONE\r
+TZID:America/Los_Angeles\r
+X-LIC-LOCATION:America/Los_Angeles\r
+BEGIN:DAYLIGHT\r
+TZOFFSETFROM:-0800\r
+TZOFFSETTO:-0700\r
+TZNAME:PDT\r
+DTSTART:19700308T020000\r
+RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=2SU\r
+END:DAYLIGHT\r
+BEGIN:STANDARD\r
+TZOFFSETFROM:-0700\r
+TZOFFSETTO:-0800\r
+TZNAME:PST\r
+DTSTART:19701101T020000\r
+RRULE:FREQ=YEARLY;BYMONTH=11;BYDAY=1SU\r
+END:STANDARD\r
+END:VTIMEZONE`,
+          'America/New_York': `BEGIN:VTIMEZONE\r
+TZID:America/New_York\r
+X-LIC-LOCATION:America/New_York\r
+BEGIN:DAYLIGHT\r
+TZOFFSETFROM:-0500\r
+TZOFFSETTO:-0400\r
+TZNAME:EDT\r
+DTSTART:19700308T020000\r
+RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=2SU\r
+END:DAYLIGHT\r
+BEGIN:STANDARD\r
+TZOFFSETFROM:-0400\r
+TZOFFSETTO:-0500\r
+TZNAME:EST\r
+DTSTART:19701101T020000\r
+RRULE:FREQ=YEARLY;BYMONTH=11;BYDAY=1SU\r
+END:STANDARD\r
+END:VTIMEZONE`,
+          'America/Chicago': `BEGIN:VTIMEZONE\r
+TZID:America/Chicago\r
+X-LIC-LOCATION:America/Chicago\r
+BEGIN:DAYLIGHT\r
+TZOFFSETFROM:-0600\r
+TZOFFSETTO:-0500\r
+TZNAME:CDT\r
+DTSTART:19700308T020000\r
+RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=2SU\r
+END:DAYLIGHT\r
+BEGIN:STANDARD\r
+TZOFFSETFROM:-0500\r
+TZOFFSETTO:-0600\r
+TZNAME:CST\r
+DTSTART:19701101T020000\r
+RRULE:FREQ=YEARLY;BYMONTH=11;BYDAY=1SU\r
+END:STANDARD\r
+END:VTIMEZONE`,
+          'America/Denver': `BEGIN:VTIMEZONE\r
+TZID:America/Denver\r
+X-LIC-LOCATION:America/Denver\r
+BEGIN:DAYLIGHT\r
+TZOFFSETFROM:-0700\r
+TZOFFSETTO:-0600\r
+TZNAME:MDT\r
+DTSTART:19700308T020000\r
+RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=2SU\r
+END:DAYLIGHT\r
+BEGIN:STANDARD\r
+TZOFFSETFROM:-0600\r
+TZOFFSETTO:-0700\r
+TZNAME:MST\r
+DTSTART:19701101T020000\r
+RRULE:FREQ=YEARLY;BYMONTH=11;BYDAY=1SU\r
+END:STANDARD\r
+END:VTIMEZONE`,
+        }
+        
+        if (timezones[tzid]) {
+          return timezones[tzid]
+        }
+        
+        throw new Error(`VTIMEZONE not available for timezone: ${tzid}`)
+      }
+      
+      try {
+        const vtimezoneString = generateVTIMEZONE(validTimezone)
+        // Insert VTIMEZONE after METHOD:REQUEST (matching Google Calendar's order)
+        icsContent = icsContent.replace(/(METHOD:REQUEST[\r\n]+)/, `$1${vtimezoneString}\r\n`)
+        
+        if (!icsContent.includes('BEGIN:VTIMEZONE')) {
+          throw new Error('VTIMEZONE insertion failed')
+        }
+      } catch (error: any) {
+        console.error('[ICS Generation] Failed to add VTIMEZONE block:', error.message || error)
+        return NextResponse.json(
+          { error: `Unsupported timezone: ${validTimezone}. Please use a common US timezone (America/Los_Angeles, America/New_York, etc.).` },
+          { status: 400 }
+        )
+      }
+    }
     
     // 4. Add optional properties that Google includes (helpful for Gmail recognition)
     const now = new Date()

@@ -269,9 +269,13 @@ export default function PollPage() {
     }))
   }
 
-  const startEditingVotes = () => {
+  const startEditingVotes = async () => {
     setIsEditingVotes(true)
     setHasVoted(false) // Allow them to see the voting form
+    // Reload existing votes and comments to ensure we have the latest data
+    if (existingVoterEmail) {
+      await checkExistingVotes(existingVoterEmail)
+    }
   }
 
   const cancelEditingVotes = () => {
@@ -1016,8 +1020,9 @@ export default function PollPage() {
                                     type="button"
                                     onClick={() => toggleCommentField(option.id)}
                                     className="text-xs text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1 mx-auto"
+                                    title={hasComment ? `Comment: ${userComments[option.id]}` : 'Add a comment'}
                                   >
-                                    {hasComment ? '💬 Edit comment' : '💬 Add comment'}
+                                    {hasComment ? `💬 Edit comment (${userComments[option.id]?.length || 0} chars)` : '💬 Add comment'}
                                   </button>
                                   
                                   {/* Popover for comment - positioned above if near bottom of viewport */}

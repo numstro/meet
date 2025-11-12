@@ -196,11 +196,21 @@ export async function POST(request: NextRequest) {
         type: ICalAttendeeType.INDIVIDUAL
       })),
       status: ICalEventStatus.CONFIRMED,
-      busystatus: ICalEventBusyStatus.BUSY
+      busystatus: ICalEventBusyStatus.BUSY,
+      // Add UID to ensure Gmail recognizes it as a unique event
+      uid: `${pollId}-${optionId}-${Date.now()}@${request.nextUrl.hostname}`
     })
 
     // Generate .ics file content
     const icsContent = calendar.toString()
+    
+    // Validate .ics content is not empty
+    if (!icsContent || icsContent.trim().length === 0) {
+      return NextResponse.json(
+        { error: 'Failed to generate calendar invite' },
+        { status: 500 }
+      )
+    }
 
     // Send emails with calendar invite
     if (!process.env.RESEND_API_KEY) {

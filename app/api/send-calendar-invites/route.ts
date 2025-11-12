@@ -264,6 +264,31 @@ export async function POST(request: NextRequest) {
       icsContent = icsContent.replace(/\n/g, '\r\n')
     }
     
+    // Fix line folding: ICS spec requires lines >75 chars to be folded with CRLF + space
+    // Split by CRLF, then fold long lines properly
+    const lines = icsContent.split(/\r\n/)
+    const foldedLines: string[] = []
+    
+    for (const line of lines) {
+      if (line.length <= 75) {
+        foldedLines.push(line)
+      } else {
+        // Fold long lines: break at 75 chars, continue with space on next line
+        let remaining = line
+        while (remaining.length > 0) {
+          if (remaining.length <= 75) {
+            foldedLines.push(remaining)
+            break
+          }
+          // Take first 75 chars, then continue with space on next line
+          foldedLines.push(remaining.substring(0, 75))
+          remaining = ' ' + remaining.substring(75) // Space indicates continuation
+        }
+      }
+    }
+    
+    icsContent = foldedLines.join('\r\n')
+    
     // Validate .ics content is not empty
     if (!icsContent || icsContent.trim().length === 0) {
       return NextResponse.json(

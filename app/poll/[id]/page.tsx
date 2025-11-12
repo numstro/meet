@@ -863,14 +863,15 @@ export default function PollPage() {
         )}
         
         {/* Send Calendar Invites Button - Full Width, Centered */}
-        <div className="mt-6">
-          <button
-            onClick={() => setShowCalendarModal(true)}
-            className="w-full px-4 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors font-medium"
-          >
-            📅 Send Calendar Invites
-          </button>
-        </div>
+        {summary.length > 0 && (
+          <div className="mt-6">
+            <button
+              onClick={() => setShowCalendarModal(true)}
+              className="w-full px-4 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors font-medium"
+            >
+              📅 Send Calendar Invites
+            </button>
+          </div>
         )}
       </div>
 

@@ -565,6 +565,11 @@ export default function PollPage() {
     )
   }
 
+  // Early return if poll is not loaded yet
+  if (!poll) {
+    return null
+  }
+
   return (
     <div className="max-w-4xl mx-auto px-4 py-6">
       {/* Poll Header */}

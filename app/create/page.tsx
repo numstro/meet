@@ -1,9 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import { format, addDays } from 'date-fns'
+import { format, addDays, parseISO } from 'date-fns'
 
 interface TimeOption {
   date: string
@@ -32,6 +32,9 @@ export default function CreatePollPage() {
     }
   ])
 
+  // Ref for scrolling to new rows
+  const tableRef = useRef<HTMLTableElement>(null)
+
   // Time bucket options
   const timeBuckets = [
     { value: 'morning', label: '🌅 Morning', description: '8 AM - 12 PM' },
@@ -41,7 +44,12 @@ export default function CreatePollPage() {
 
   const addTimeOption = () => {
     // Find the latest date from existing options
-    const existingDates = timeOptions.map(option => new Date(option.date))
+    // Parse dates correctly by treating them as local dates (not UTC)
+    const existingDates = timeOptions.map(option => {
+      const [year, month, day] = option.date.split('-').map(Number)
+      return new Date(year, month - 1, day) // month is 0-indexed
+    })
+    
     const latestDate = existingDates.length > 0 
       ? new Date(Math.max(...existingDates.map(d => d.getTime())))
       : new Date()
@@ -57,6 +65,16 @@ export default function CreatePollPage() {
         timeBuckets: []
       }
     ])
+
+    // Scroll to the bottom of the table after adding a new row
+    setTimeout(() => {
+      if (tableRef.current) {
+        const tableContainer = tableRef.current.closest('.overflow-x-auto')
+        if (tableContainer) {
+          tableContainer.scrollIntoView({ behavior: 'smooth', block: 'end' })
+        }
+      }
+    }, 100)
   }
 
   const updateTimeOption = (index: number, field: keyof TimeOption, value: string) => {
@@ -455,7 +473,7 @@ export default function CreatePollPage() {
 
           <div className="border border-gray-200 rounded-lg overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="w-full border-collapse">
+              <table ref={tableRef} className="w-full border-collapse">
               <thead>
                 <tr className="bg-gray-50">
                   <th className="text-left p-3 border-r border-gray-200 font-medium" style={{ minWidth: '180px' }}>

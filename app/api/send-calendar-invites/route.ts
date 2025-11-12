@@ -158,6 +158,7 @@ export async function POST(request: NextRequest) {
 
     // Create calendar event with explicit timezone
     // Use the user's detected timezone to ensure times are interpreted correctly by Gmail/calendar apps
+    // Note: Not using METHOD:REQUEST as it can cause Gmail to not recognize the invite
     const calendar = ical({ 
       name: poll.title,
       timezone: validTimezone,
@@ -165,8 +166,8 @@ export async function POST(request: NextRequest) {
         company: 'Numstro',
         product: 'Meet',
         language: 'EN'
-      },
-      method: ICalCalendarMethod.REQUEST // This makes it a proper calendar invitation (METHOD:REQUEST)
+      }
+      // Omitting method property - Gmail works better without METHOD:REQUEST
     })
     
     const event = calendar.createEvent({
@@ -213,6 +214,14 @@ export async function POST(request: NextRequest) {
           to: voter.participant_email,
           reply_to: poll.creator_email,
           subject: `📅 Calendar Invite: ${poll.title}`,
+          // Add calendar invite as attachment with proper content type
+          attachments: [
+            {
+              filename: 'invite.ics',
+              content: Buffer.from(icsContent).toString('base64'),
+              contentType: 'text/calendar; charset=UTF-8; method=REQUEST'
+            }
+          ],
           html: `
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
               <h2 style="color: #1f2937;">📅 Calendar Invite</h2>
@@ -247,13 +256,7 @@ export async function POST(request: NextRequest) {
                 This invite was sent because you voted "yes" or "maybe" for this time slot.
               </p>
             </div>
-          `,
-          attachments: [
-            {
-              filename: 'invite.ics',
-              content: Buffer.from(icsContent).toString('base64')
-            }
-          ]
+          `
         })
         
         emailResults.push({ email: voter.participant_email, success: true })

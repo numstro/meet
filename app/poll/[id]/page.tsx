@@ -65,7 +65,7 @@ export default function PollPage() {
   const [userComments, setUserComments] = useState<Record<string, string>>({}) // optionId -> comment
   const [expandedComments, setExpandedComments] = useState<Record<string, boolean>>({}) // optionId -> isExpanded
   const [openCommentTooltip, setOpenCommentTooltip] = useState<string | null>(null) // optionId -> track which tooltip is open on mobile
-  const tooltipRef = useRef<HTMLDivElement>(null)
+  const tooltipRefs = useRef<Record<string, HTMLDivElement | null>>({})
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [hasVoted, setHasVoted] = useState(false)
   const [isEditingVotes, setIsEditingVotes] = useState(false)
@@ -138,8 +138,15 @@ export default function PollPage() {
   // Close tooltip when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent | TouchEvent) => {
-      if (tooltipRef.current && !tooltipRef.current.contains(event.target as Node)) {
-        setOpenCommentTooltip(null)
+      if (openCommentTooltip) {
+        const tooltipElement = tooltipRefs.current[openCommentTooltip]
+        if (tooltipElement && !tooltipElement.contains(event.target as Node)) {
+          // Also check if click is on the button that opened it
+          const target = event.target as HTMLElement
+          if (!target.closest('button[aria-label="View comments"]')) {
+            setOpenCommentTooltip(null)
+          }
+        }
       }
     }
 
@@ -857,7 +864,13 @@ export default function PollPage() {
                               {/* Hover tooltip for comments - positioned above on mobile, below on desktop */}
                               {hasComments && (
                                 <div 
-                                  ref={tooltipRef}
+                                  ref={(el) => {
+                                    if (el) {
+                                      tooltipRefs.current[option.id] = el
+                                    } else {
+                                      delete tooltipRefs.current[option.id]
+                                    }
+                                  }}
                                   className={`absolute left-1/2 bottom-full mb-2 sm:bottom-auto sm:top-full sm:mt-2 transform -translate-x-1/2 z-50 transition-opacity duration-200 ${
                                     openCommentTooltip === option.id 
                                       ? 'opacity-100 pointer-events-auto' 

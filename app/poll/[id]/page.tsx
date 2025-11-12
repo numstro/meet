@@ -537,6 +537,14 @@ export default function PollPage() {
     }
   }
 
+  // Show error modal if there's an error (must be before any returns to follow Rules of Hooks)
+  useEffect(() => {
+    if (error && !showErrorModal) {
+      setShowErrorModal(true)
+      setErrorMessage(error)
+    }
+  }, [error, showErrorModal])
+
   if (isLoading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -544,14 +552,6 @@ export default function PollPage() {
       </div>
     )
   }
-
-  // Show error modal if there's an error (using useEffect to avoid state update during render)
-  useEffect(() => {
-    if (error && !showErrorModal) {
-      setShowErrorModal(true)
-      setErrorMessage(error)
-    }
-  }, [error, showErrorModal])
 
   if (!poll && !isLoading) {
     return (

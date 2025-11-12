@@ -231,14 +231,6 @@ export default function CreatePollPage() {
 
       const pollId = pollResult.id
 
-      // Generate a unique creator token for this poll
-      const creatorToken = crypto.randomUUID()
-      
-      // Store creator token in localStorage for verification
-      const creatorTokens = JSON.parse(localStorage.getItem('poll_creator_tokens') || '{}')
-      creatorTokens[pollId] = creatorToken
-      localStorage.setItem('poll_creator_tokens', JSON.stringify(creatorTokens))
-
       // Create the time options - one for each selected time bucket
       const optionsToInsert = timeOptions.flatMap(option => 
         option.timeBuckets.map(bucket => ({
@@ -261,8 +253,7 @@ export default function CreatePollPage() {
       // Redirect directly to the poll with creator info for auto-population
       const params = new URLSearchParams({
         creatorName: pollData.creatorName,
-        creatorEmail: pollData.creatorEmail,
-        token: creatorToken // Include token in URL for verification
+        creatorEmail: pollData.creatorEmail
       })
       router.push(`/poll/${pollId}?${params.toString()}`)
     } catch (err: any) {

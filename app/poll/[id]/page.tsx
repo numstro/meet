@@ -66,7 +66,6 @@ export default function PollPage() {
   const [expandedComments, setExpandedComments] = useState<Record<string, boolean>>({}) // optionId -> isExpanded
   const [openCommentTooltip, setOpenCommentTooltip] = useState<string | null>(null) // optionId -> track which tooltip is open on mobile
   const tooltipRefs = useRef<Record<string, HTMLDivElement | null>>({})
-  const [isCreator, setIsCreator] = useState(false) // Track if current user is the poll creator
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [hasVoted, setHasVoted] = useState(false)
   const [isEditingVotes, setIsEditingVotes] = useState(false)
@@ -543,18 +542,8 @@ export default function PollPage() {
       return
     }
 
-    // Verify creator identity using token
-    const creatorTokens = JSON.parse(typeof window !== 'undefined' ? localStorage.getItem('poll_creator_tokens') || '{}' : '{}')
-    const storedToken = creatorTokens[poll.id]
-    
-    if (!storedToken || !isCreator) {
-      setErrorMessage('Only the poll creator can send calendar invites. You must be logged in as the creator.')
-      setShowErrorModal(true)
-      return
-    }
-
     if (creatorEmailForInvite.toLowerCase() !== poll.creator_email.toLowerCase()) {
-      setErrorMessage('The email you entered does not match the poll creator\'s email.')
+      setErrorMessage('Only the poll creator can send calendar invites. The email you entered does not match the poll creator\'s email.')
       setShowErrorModal(true)
       return
     }
@@ -935,8 +924,8 @@ export default function PollPage() {
           </div>
         )}
         
-        {/* Send Calendar Invites Button - Full Width, Centered - Only show to creator */}
-        {summary.length > 0 && isCreator ? (
+        {/* Send Calendar Invites Button - Full Width, Centered */}
+        {summary.length > 0 ? (
           <div className="mt-6">
             <button
               onClick={() => setShowCalendarModal(true)}
@@ -1487,29 +1476,21 @@ export default function PollPage() {
               )}
 
               {/* Creator Email Verification */}
-              {isCreator ? (
-                <div className="mb-6">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Creator Email:
-                  </label>
-                  <input
-                    type="email"
-                    value={creatorEmailForInvite}
-                    onChange={(e) => setCreatorEmailForInvite(e.target.value)}
-                    className="w-full px-3 py-2 bg-white text-gray-900 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder={poll.creator_email}
-                  />
-                  <p className="mt-1 text-xs text-green-600">
-                    ✓ Verified as poll creator
-                  </p>
-                </div>
-              ) : (
-                <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-md">
-                  <p className="text-sm text-yellow-800">
-                    ⚠️ Only the poll creator can send calendar invites. If you created this poll, please access it from the original link you received.
-                  </p>
-                </div>
-              )}
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Enter your email to verify you're the poll creator:
+                </label>
+                <input
+                  type="email"
+                  value={creatorEmailForInvite}
+                  onChange={(e) => setCreatorEmailForInvite(e.target.value)}
+                  className="w-full px-3 py-2 bg-white text-gray-900 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="your@email.com"
+                />
+                <p className="mt-1 text-xs text-gray-500">
+                  Only the poll creator can send calendar invites.
+                </p>
+              </div>
 
               {/* Action Buttons */}
               <div className="flex gap-3">

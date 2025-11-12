@@ -871,7 +871,7 @@ export default function PollPage() {
                                       delete tooltipRefs.current[option.id]
                                     }
                                   }}
-                                  className={`absolute left-1/2 bottom-full mb-2 sm:bottom-auto sm:top-full sm:mb-0 sm:mt-2 transform -translate-x-1/2 z-50 transition-opacity duration-200 ${
+                                  className={`absolute left-1/2 bottom-full mb-2 transform -translate-x-1/2 z-50 transition-opacity duration-200 ${
                                     openCommentTooltip === option.id 
                                       ? 'opacity-100 pointer-events-auto sm:opacity-0 sm:group-hover:opacity-100' 
                                       : 'opacity-0 group-hover:opacity-100 sm:group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto sm:group-hover:pointer-events-auto'

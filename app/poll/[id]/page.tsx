@@ -495,10 +495,16 @@ export default function PollPage() {
           setCustomEndTime('')
         }, 2000)
       } else {
-        setInviteResult({ success: false, message: result.error || 'Failed to send invites' })
+        const errorMsg = result.error || 'Failed to send invites'
+        setInviteResult({ success: false, message: errorMsg })
+        setErrorMessage(errorMsg)
+        setShowErrorModal(true)
       }
     } catch (err: any) {
-      setInviteResult({ success: false, message: err.message || 'Failed to send invites' })
+      const errorMsg = err.message || 'Something went wrong'
+      setInviteResult({ success: false, message: errorMsg })
+      setErrorMessage(errorMsg)
+      setShowErrorModal(true)
     } finally {
       setIsSendingInvites(false)
     }

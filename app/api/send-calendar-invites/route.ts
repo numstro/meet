@@ -208,8 +208,8 @@ export async function POST(request: NextRequest) {
     // Create calendar event with UTC times (no timezone) for maximum Gmail compatibility
     // Gmail prefers simpler ICS files without TZID/VTIMEZONE blocks
     // METHOD:REQUEST is required for Gmail to recognize this as an interactive meeting invite
+    // NOTE: Do NOT include 'name' property - it's not a valid ICS property and causes Gmail to reject
     const calendar = ical({ 
-      name: poll.title,
       // Omit timezone to use UTC (Gmail-friendly)
       method: ICalCalendarMethod.REQUEST, // Required for Gmail to render inline event card
       prodId: {
@@ -219,13 +219,23 @@ export async function POST(request: NextRequest) {
       }
     })
     
-    const event = calendar.createEvent({
+    // Generate shorter UID to avoid line folding issues (max 75 chars)
+    // Format: pollId-optionId-timestamp@domain (truncate if needed)
+    const shortPollId = pollId.substring(0, 8) // First 8 chars of poll ID
+    const shortOptionId = optionId.substring(0, 8) // First 8 chars of option ID
+    const timestamp = Date.now().toString().slice(-10) // Last 10 digits of timestamp
+    const shortHostname = request.nextUrl.hostname.replace('www.', '').substring(0, 20) // Max 20 chars
+    const eventUid = `${shortPollId}-${shortOptionId}-${timestamp}@${shortHostname}`
+    
+    // Build event data object
+    // Match Google Calendar's format as closely as possible for Gmail compatibility
+    const now = new Date()
+    const eventData: any = {
       start,
       end,
       // Omit timezone to use UTC (Gmail-friendly, avoids TZID/VTIMEZONE blocks)
       summary: poll.title,
-      description: poll.description || '',
-      location: poll.location || '',
+      location: poll.location || undefined, // Only include if not empty
       url: `${request.nextUrl.origin}/poll/${pollId}`,
       organizer: {
         name: poll.creator_name,
@@ -240,15 +250,37 @@ export async function POST(request: NextRequest) {
       })),
       status: ICalEventStatus.CONFIRMED,
       busystatus: ICalEventBusyStatus.BUSY,
-      // Add unique ID to ensure Gmail recognizes it as a unique event
-      id: `${pollId}-${optionId}-${Date.now()}@${request.nextUrl.hostname}`,
+      id: eventUid, // Use shorter UID
       // Sequence number for updates/cancellations (start at 0, increment on changes)
-      sequence: 0
-    })
+      sequence: 0,
+      // Add optional properties that Google Calendar includes (may help Gmail recognition)
+      stamp: now, // DTSTAMP (already set by ical-generator, but explicit is better)
+      created: now, // CREATED timestamp (when event was created)
+      lastModified: now // LAST-MODIFIED timestamp (when event was last modified)
+    }
+    
+    // Only include description if it has a value (empty descriptions cause issues)
+    if (poll.description && poll.description.trim().length > 0) {
+      eventData.description = poll.description
+    }
+    
+    const event = calendar.createEvent(eventData)
+    
+    // Add TRANSP:OPAQUE property (indicates event blocks time, like Google Calendar)
+    // This is not directly supported by ical-generator, so we'll add it manually after generation
 
     // Generate .ics file content with proper line folding
     // Use ical-generator to create the structure, but manually format to ensure proper folding
     let icsContent = calendar.toString()
+    
+    // Remove invalid properties that ical-generator might add
+    // NAME: is NOT a valid ICS property and causes Gmail to reject the file
+    icsContent = icsContent.replace(/^NAME:.*$/gm, '')
+    // X-WR-CALNAME is non-standard and might confuse Gmail
+    icsContent = icsContent.replace(/^X-WR-CALNAME:.*$/gm, '')
+    
+    // Remove empty DESCRIPTION lines (DESCRIPTION: with no value)
+    icsContent = icsContent.replace(/^DESCRIPTION:\s*$/gm, '')
     
     // Ensure CALSCALE:GREGORIAN is present (Gmail-friendly)
     if (!icsContent.includes('CALSCALE:GREGORIAN')) {
@@ -261,6 +293,19 @@ export async function POST(request: NextRequest) {
     // Ensure CRLF line endings
     if (!icsContent.includes('\r\n')) {
       icsContent = icsContent.replace(/\n/g, '\r\n')
+    }
+    
+    // Remove any double line breaks caused by removing properties
+    icsContent = icsContent.replace(/\r\n\r\n\r\n/g, '\r\n\r\n')
+    
+    // Add TRANSP:OPAQUE property (like Google Calendar) if not present
+    // This indicates the event blocks time (vs TRANSPARENT for free time)
+    // Insert it before END:VEVENT
+    if (!icsContent.includes('TRANSP:')) {
+      icsContent = icsContent.replace(
+        /(STATUS:CONFIRMED\r\n)/,
+        '$1TRANSP:OPAQUE\r\n'
+      )
     }
     
     // Completely unfold all lines first (handle any existing folding)

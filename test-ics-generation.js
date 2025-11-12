@@ -18,9 +18,8 @@ const uniqueVoters = [
   { participant_name: 'Attendee 2', participant_email: 'attendee2@example.com' }
 ]
 
-// Create calendar (same as API route)
+// Create calendar (same as API route) - NO 'name' property (invalid ICS property)
 const calendar = ical({ 
-  name: poll.title,
   method: ICalCalendarMethod.REQUEST,
   prodId: {
     company: 'Numstro',
@@ -29,12 +28,21 @@ const calendar = ical({
   }
 })
 
-const event = calendar.createEvent({
+// Generate shorter UID (same logic as API route)
+const pollId = 'test-poll-id-12345'
+const optionId = 'test-option-id-67890'
+const shortPollId = pollId.substring(0, 8)
+const shortOptionId = optionId.substring(0, 8)
+const timestamp = Date.now().toString().slice(-10)
+const shortHostname = 'meet.numstro.com'.substring(0, 20)
+const eventUid = `${shortPollId}-${shortOptionId}-${timestamp}@${shortHostname}`
+
+// Build event data (only include description if it has a value)
+const eventData = {
   start,
   end,
   summary: poll.title,
-  description: poll.description || '',
-  location: poll.location || '',
+  location: poll.location || undefined,
   url: 'https://meet.numstro.com/poll/test-id',
   organizer: {
     name: poll.creator_name,
@@ -49,12 +57,28 @@ const event = calendar.createEvent({
   })),
   status: ICalEventStatus.CONFIRMED,
   busystatus: ICalEventBusyStatus.BUSY,
-  id: `test-poll-test-option-${Date.now()}@meet.numstro.com`,
+  id: eventUid,
   sequence: 0
-})
+}
+
+// Only include description if it has a value
+if (poll.description && poll.description.trim().length > 0) {
+  eventData.description = poll.description
+}
+
+const event = calendar.createEvent(eventData)
 
 // Generate .ics file content (same logic as API route)
 let icsContent = calendar.toString()
+
+// Remove invalid properties that ical-generator might add
+// NAME: is NOT a valid ICS property and causes Gmail to reject the file
+icsContent = icsContent.replace(/^NAME:.*$/gm, '')
+// X-WR-CALNAME is non-standard and might confuse Gmail
+icsContent = icsContent.replace(/^X-WR-CALNAME:.*$/gm, '')
+
+// Remove empty DESCRIPTION lines (DESCRIPTION: with no value)
+icsContent = icsContent.replace(/^DESCRIPTION:\s*$/gm, '')
 
 // Ensure CALSCALE:GREGORIAN is present
 if (!icsContent.includes('CALSCALE:GREGORIAN')) {
@@ -68,6 +92,9 @@ if (!icsContent.includes('CALSCALE:GREGORIAN')) {
 if (!icsContent.includes('\r\n')) {
   icsContent = icsContent.replace(/\n/g, '\r\n')
 }
+
+// Remove any double line breaks caused by removing properties
+icsContent = icsContent.replace(/\r\n\r\n\r\n/g, '\r\n\r\n')
 
 // Completely unfold all lines first
 const allLines = icsContent.split(/\r\n/)
@@ -182,6 +209,20 @@ if (!icsContent.includes('METHOD:REQUEST')) issues.push('Missing METHOD:REQUEST'
 if (!icsContent.includes('CALSCALE:GREGORIAN')) issues.push('Missing CALSCALE:GREGORIAN')
 if (icsContent.includes('RSVP=\r\n')) issues.push('RSVP= is split from value')
 if (icsContent.includes('RSVP=\n')) issues.push('RSVP= is split from value (LF)')
+if (icsContent.includes('NAME:')) issues.push('Invalid NAME: property found (should be removed)')
+if (icsContent.includes('X-WR-CALNAME:')) issues.push('Non-standard X-WR-CALNAME found (should be removed)')
+if (icsContent.includes('DESCRIPTION:\r\n') && !icsContent.match(/DESCRIPTION:[^\r\n]/)) {
+  issues.push('Empty DESCRIPTION: found (should be removed)')
+}
+
+// Check UID length
+const uidMatch = icsContent.match(/^UID:([^\r\n]+)/m)
+if (uidMatch) {
+  const uid = uidMatch[1]
+  if (uid.length > 75) {
+    issues.push(`UID is too long (${uid.length} chars, should be <= 75)`)
+  }
+}
 
 if (issues.length === 0) {
   console.log('✓ All validation checks passed')

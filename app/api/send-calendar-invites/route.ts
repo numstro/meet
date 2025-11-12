@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
-import nodemailer from 'nodemailer'
 import ical, { 
   ICalCalendarMethod, 
   ICalAttendeeStatus, 
@@ -8,7 +7,6 @@ import ical, {
   ICalEventStatus,
   ICalEventBusyStatus
 } from 'ical-generator'
-import { getVtimezoneComponent } from '@touch4it/ical-timezones'
 
 export const dynamic = 'force-dynamic'
 
@@ -211,55 +209,24 @@ export async function POST(request: NextRequest) {
     }
     const timeStr = `${formatTime(start)} - ${formatTime(end)}`
 
-    // Create calendar event with timezone-aware times (matching Google Calendar's format)
-    // This will generate VTIMEZONE blocks automatically for Gmail compatibility
-    // METHOD:REQUEST is required for Gmail to recognize this as an interactive meeting invite
-    // NOTE: Do NOT include 'name' property - it's not a valid ICS property and causes Gmail to reject
-    let calendar
-    try {
-      calendar = ical({ 
-        timezone: {
-          name: validTimezone,
-          generator: getVtimezoneComponent // Generate VTIMEZONE blocks (matching Google's format)
-        },
-        method: ICalCalendarMethod.REQUEST, // Required for Gmail to render inline event card
-        prodId: {
-          company: 'Numstro',
-          product: 'Meet',
-          language: 'EN'
-        }
-      })
-    } catch (error) {
-      console.error('Error creating calendar with timezone generator:', error)
-      // Fallback: create calendar without timezone generator (will use default)
-      calendar = ical({ 
-        timezone: validTimezone,
-        method: ICalCalendarMethod.REQUEST,
-        prodId: {
-          company: 'Numstro',
-          product: 'Meet',
-          language: 'EN'
-        }
-      })
-    }
+    // Create calendar event - standard ical-generator setup
+    const calendar = ical({ 
+      timezone: validTimezone,
+      method: ICalCalendarMethod.REQUEST,
+      prodId: {
+        company: 'Numstro',
+        product: 'Meet',
+        language: 'EN'
+      }
+    })
     
-    // Generate shorter UID to avoid line folding issues (max 75 chars)
-    // Format: pollId-optionId-timestamp@domain (truncate if needed)
-    const shortPollId = pollId.substring(0, 8) // First 8 chars of poll ID
-    const shortOptionId = optionId.substring(0, 8) // First 8 chars of option ID
-    const timestamp = Date.now().toString().slice(-10) // Last 10 digits of timestamp
-    const shortHostname = request.nextUrl.hostname.replace('www.', '').substring(0, 20) // Max 20 chars
-    const eventUid = `${shortPollId}-${shortOptionId}-${timestamp}@${shortHostname}`
-    
-    // Build event data object
-    // Match Google Calendar's format as closely as possible for Gmail compatibility
-    const now = new Date()
-    const eventData: any = {
+    // Build event data - standard ical-generator format
+    const eventData = {
       start,
       end,
-      timezone: validTimezone, // Specify timezone for this event (will use TZID format like Google)
+      timezone: validTimezone,
       summary: poll.title,
-      location: poll.location || undefined, // Only include if not empty
+      location: poll.location || undefined,
       url: `${request.nextUrl.origin}/poll/${pollId}`,
       organizer: {
         name: poll.creator_name,
@@ -273,100 +240,149 @@ export async function POST(request: NextRequest) {
         type: ICalAttendeeType.INDIVIDUAL
       })),
       status: ICalEventStatus.CONFIRMED,
-      busystatus: ICalEventBusyStatus.BUSY,
-      id: eventUid, // Use shorter UID
-      // Sequence number for updates/cancellations (start at 0, increment on changes)
-      sequence: 0,
-      // Add optional properties that Google Calendar includes (may help Gmail recognition)
-      stamp: now, // DTSTAMP (already set by ical-generator, but explicit is better)
-      created: now, // CREATED timestamp (when event was created)
-      lastModified: now // LAST-MODIFIED timestamp (when event was last modified)
+      busystatus: ICalEventBusyStatus.BUSY
     }
     
-    // Only include description if it has a value (empty descriptions cause issues)
+    // Only include description if it has a value
     if (poll.description && poll.description.trim().length > 0) {
       eventData.description = poll.description
     }
     
-    const event = calendar.createEvent(eventData)
+    calendar.createEvent(eventData)
     
-    // Add TRANSP:OPAQUE property (indicates event blocks time, like Google Calendar)
-    // This is not directly supported by ical-generator, so we'll add it manually after generation
-
-    // Generate .ics file content - keep it simple!
+    // Generate ICS content - let ical-generator handle everything
     let icsContent = calendar.toString()
     
-    // Essential fixes only:
-    // 1. Remove invalid NAME property (causes Gmail to reject)
-    icsContent = icsContent.replace(/^NAME:.*$/gm, '')
-    
-    // 2. Remove non-standard timezone properties (VTIMEZONE is the standard way)
+    // Fix issues to match Google Calendar's format:
+    // 1. Remove non-standard properties (Google doesn't use these)
     icsContent = icsContent.replace(/^TIMEZONE-ID:.*$/gm, '')
     icsContent = icsContent.replace(/^X-WR-TIMEZONE:.*$/gm, '')
     
-    // 3. Ensure VTIMEZONE block is present (critical for Gmail to parse TZID)
+    // 2. Remove quotes from ORGANIZER/ATTENDEE CN values (Google doesn't use quotes)
+    icsContent = icsContent.replace(/ORGANIZER;CN="([^"]+)":/g, 'ORGANIZER;CN=$1:')
+    icsContent = icsContent.replace(/CN="([^"]+)":MAILTO:/g, 'CN=$1:MAILTO:')
+    
+    // 3. Add VTIMEZONE block if missing (critical for Gmail when using TZID)
     if (!icsContent.includes('BEGIN:VTIMEZONE')) {
+      // Generate VTIMEZONE block for common US timezones
+      const generateVTIMEZONE = (tzid: string): string => {
+        const timezones: Record<string, string> = {
+          'America/Los_Angeles': `BEGIN:VTIMEZONE\r
+TZID:America/Los_Angeles\r
+X-LIC-LOCATION:America/Los_Angeles\r
+BEGIN:DAYLIGHT\r
+TZOFFSETFROM:-0800\r
+TZOFFSETTO:-0700\r
+TZNAME:PDT\r
+DTSTART:19700308T020000\r
+RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=2SU\r
+END:DAYLIGHT\r
+BEGIN:STANDARD\r
+TZOFFSETFROM:-0700\r
+TZOFFSETTO:-0800\r
+TZNAME:PST\r
+DTSTART:19701101T020000\r
+RRULE:FREQ=YEARLY;BYMONTH=11;BYDAY=1SU\r
+END:STANDARD\r
+END:VTIMEZONE`,
+          'America/New_York': `BEGIN:VTIMEZONE\r
+TZID:America/New_York\r
+X-LIC-LOCATION:America/New_York\r
+BEGIN:DAYLIGHT\r
+TZOFFSETFROM:-0500\r
+TZOFFSETTO:-0400\r
+TZNAME:EDT\r
+DTSTART:19700308T020000\r
+RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=2SU\r
+END:DAYLIGHT\r
+BEGIN:STANDARD\r
+TZOFFSETFROM:-0400\r
+TZOFFSETTO:-0500\r
+TZNAME:EST\r
+DTSTART:19701101T020000\r
+RRULE:FREQ=YEARLY;BYMONTH=11;BYDAY=1SU\r
+END:STANDARD\r
+END:VTIMEZONE`,
+          'America/Chicago': `BEGIN:VTIMEZONE\r
+TZID:America/Chicago\r
+X-LIC-LOCATION:America/Chicago\r
+BEGIN:DAYLIGHT\r
+TZOFFSETFROM:-0600\r
+TZOFFSETTO:-0500\r
+TZNAME:CDT\r
+DTSTART:19700308T020000\r
+RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=2SU\r
+END:DAYLIGHT\r
+BEGIN:STANDARD\r
+TZOFFSETFROM:-0500\r
+TZOFFSETTO:-0600\r
+TZNAME:CST\r
+DTSTART:19701101T020000\r
+RRULE:FREQ=YEARLY;BYMONTH=11;BYDAY=1SU\r
+END:STANDARD\r
+END:VTIMEZONE`,
+          'America/Denver': `BEGIN:VTIMEZONE\r
+TZID:America/Denver\r
+X-LIC-LOCATION:America/Denver\r
+BEGIN:DAYLIGHT\r
+TZOFFSETFROM:-0700\r
+TZOFFSETTO:-0600\r
+TZNAME:MDT\r
+DTSTART:19700308T020000\r
+RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=2SU\r
+END:DAYLIGHT\r
+BEGIN:STANDARD\r
+TZOFFSETFROM:-0600\r
+TZOFFSETTO:-0700\r
+TZNAME:MST\r
+DTSTART:19701101T020000\r
+RRULE:FREQ=YEARLY;BYMONTH=11;BYDAY=1SU\r
+END:STANDARD\r
+END:VTIMEZONE`,
+        }
+        
+        if (timezones[tzid]) {
+          return timezones[tzid]
+        }
+        
+        // If timezone not in our list, return error
+        throw new Error(`VTIMEZONE not available for timezone: ${tzid}`)
+      }
+      
       try {
-        // Check if getVtimezoneComponent is available
-        if (typeof getVtimezoneComponent !== 'function') {
-          console.error('[ICS Generation] ERROR: getVtimezoneComponent is not a function')
-          throw new Error('VTIMEZONE generator not available')
-        }
-        
-        const vtimezone = getVtimezoneComponent(validTimezone)
-        console.log('[ICS Generation] getVtimezoneComponent result type:', typeof vtimezone, 'is null?', vtimezone === null)
-        
-        if (!vtimezone || vtimezone === null || vtimezone === undefined) {
-          console.error('[ICS Generation] ERROR: getVtimezoneComponent returned null/undefined for timezone:', validTimezone)
-          throw new Error('VTIMEZONE generation returned null')
-        }
-        
-        const vtimezoneString = String(vtimezone)
-        if (vtimezoneString === 'null' || vtimezoneString === 'undefined' || !vtimezoneString.includes('BEGIN:VTIMEZONE')) {
-          console.error('[ICS Generation] ERROR: Generated VTIMEZONE block is invalid. String value:', vtimezoneString.substring(0, 100))
-          throw new Error('VTIMEZONE block validation failed')
-        }
-        
-        const normalizedVtimezone = vtimezoneString.replace(/\r\n/g, '\n').replace(/\n/g, '\r\n')
-        const beforeReplace = icsContent
-        icsContent = icsContent.replace(/(METHOD:REQUEST[\r\n]+)/, `$1${normalizedVtimezone}\r\n`)
-        
-        if (icsContent === beforeReplace) {
-          console.error('[ICS Generation] ERROR: Regex replacement failed - VTIMEZONE not inserted')
-          throw new Error('VTIMEZONE insertion failed')
-        }
+        const vtimezoneString = generateVTIMEZONE(validTimezone)
+        // Insert VTIMEZONE after METHOD:REQUEST
+        icsContent = icsContent.replace(/(METHOD:REQUEST[\r\n]+)/, `$1${vtimezoneString}\r\n`)
         
         if (!icsContent.includes('BEGIN:VTIMEZONE')) {
-          console.error('[ICS Generation] ERROR: VTIMEZONE block not found after insertion')
-          throw new Error('VTIMEZONE verification failed')
+          throw new Error('VTIMEZONE insertion failed')
         }
-        
-        console.log('[ICS Generation] Successfully injected VTIMEZONE block')
       } catch (error: any) {
-        console.error('[ICS Generation] CRITICAL: Failed to inject VTIMEZONE block:', error.message || error)
-        // Without VTIMEZONE, Gmail can't parse TZID - this is a fatal error
+        console.error('[ICS Generation] Failed to add VTIMEZONE block:', error.message || error)
         return NextResponse.json(
-          { error: 'Failed to generate timezone information for calendar invite. Please contact support.' },
-          { status: 500 }
+          { error: `Unsupported timezone: ${validTimezone}. Please use a common US timezone (America/Los_Angeles, America/New_York, etc.).` },
+          { status: 400 }
         )
       }
     }
     
-    // 4. Fix ORGANIZER/ATTENDEE format (remove quotes to match Google)
-    icsContent = icsContent.replace(/ORGANIZER;CN="([^"]+)":/g, 'ORGANIZER;CN=$1:')
-    icsContent = icsContent.replace(/CN="([^"]+)":MAILTO:/g, 'CN=$1:MAILTO:')
+    // 4. Add optional properties that Google includes (helpful for Gmail recognition)
+    const now = new Date()
+    const nowStr = now.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z'
     
-    // 5. Ensure CRLF line endings
-    icsContent = icsContent.replace(/\r\n/g, '\n').replace(/\n/g, '\r\n')
-    
-    // 6. Add CALSCALE if missing
-    if (!icsContent.includes('CALSCALE:GREGORIAN')) {
-      icsContent = icsContent.replace(/(VERSION:2\.0\r\n)/, '$1CALSCALE:GREGORIAN\r\n')
+    // Add CREATED if missing
+    if (!icsContent.includes('CREATED:')) {
+      icsContent = icsContent.replace(/(DTSTAMP:[^\r\n]+\r\n)/, `$1CREATED:${nowStr}\r\n`)
     }
     
-    // 7. Add TRANSP:OPAQUE before END:VEVENT (if not present)
-    if (!icsContent.includes('TRANSP:') && icsContent.includes('STATUS:CONFIRMED')) {
-      icsContent = icsContent.replace(/(STATUS:CONFIRMED\r\n)/, '$1TRANSP:OPAQUE\r\n')
+    // Add LAST-MODIFIED if missing
+    if (!icsContent.includes('LAST-MODIFIED:')) {
+      icsContent = icsContent.replace(/(CREATED:[^\r\n]+\r\n)/, `$1LAST-MODIFIED:${nowStr}\r\n`)
+    }
+    
+    // Add TRANSP:OPAQUE if missing
+    if (!icsContent.includes('TRANSP:')) {
+      icsContent = icsContent.replace(/(STATUS:CONFIRMED\r\n)/, `$1TRANSP:OPAQUE\r\n`)
     }
     
     // Clean up any extra blank lines
@@ -380,27 +396,16 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Send emails with calendar invite using Nodemailer with SMTP
-    // This gives us full control over email headers for Gmail compatibility
-    const smtpConfig = {
-      host: process.env.SMTP_HOST || 'smtp.gmail.com',
-      port: parseInt(process.env.SMTP_PORT || '587'),
-      secure: process.env.SMTP_SECURE === 'true', // true for 465, false for 587
-      auth: {
-        user: process.env.SMTP_USER || process.env.GMAIL_USER,
-        pass: process.env.SMTP_PASS || process.env.GMAIL_APP_PASSWORD
-      }
-    }
+    // Initialize Resend - standard approach
+    const { Resend } = await import('resend')
+    const resend = new Resend(process.env.RESEND_API_KEY)
 
-    if (!smtpConfig.auth.user || !smtpConfig.auth.pass) {
+    if (!process.env.RESEND_API_KEY) {
       return NextResponse.json(
-        { error: 'SMTP not configured. Please set SMTP_USER and SMTP_PASS (or GMAIL_USER and GMAIL_APP_PASSWORD) environment variables.' },
+        { error: 'Email service not configured. Please set RESEND_API_KEY environment variable.' },
         { status: 500 }
       )
     }
-
-    // Create Nodemailer transporter
-    const transporter = nodemailer.createTransport(smtpConfig)
 
     const emailResults = []
     const htmlContent = `
@@ -439,30 +444,30 @@ export async function POST(request: NextRequest) {
       </div>
     `
 
-    // Send emails with rate limiting
+    // Send emails with Resend - standard approach
     console.log(`[Calendar Invites] Preparing to send ${uniqueVoters.length} email(s) to:`, uniqueVoters.map(v => v.participant_email))
     
     for (let i = 0; i < uniqueVoters.length; i++) {
       const voter = uniqueVoters[i]
       console.log(`[Calendar Invites] Sending email ${i + 1}/${uniqueVoters.length} to ${voter.participant_email}`)
       try {
-        await transporter.sendMail({
+        const { data, error } = await resend.emails.send({
           from: 'Meetup <noreply@numstro.com>',
           to: voter.participant_email,
-          replyTo: poll.creator_email,
+          reply_to: poll.creator_email,
           subject: `📅 Calendar Invite: ${poll.title}`,
           html: htmlContent.replace('Hi there,', `Hi ${voter.participant_name || 'there'},`),
-          // Add calendar invite as attachment with proper Content-Type header
-          // Nodemailer will automatically set the correct multipart/mixed Content-Type
           attachments: [
             {
               filename: 'invite.ics',
-              content: icsContent,
-              contentType: 'text/calendar; charset=UTF-8; method=REQUEST',
-              contentDisposition: 'attachment'
+              content: icsContent
             }
           ]
         })
+        
+        if (error) {
+          throw error
+        }
         
         console.log(`[Calendar Invites] Successfully sent email to ${voter.participant_email}`)
         emailResults.push({ email: voter.participant_email, success: true })
@@ -475,8 +480,7 @@ export async function POST(request: NextRequest) {
         })
       }
       
-      // Rate limiting: wait 600ms between emails
-      // Only wait if not the last email
+      // Rate limiting: wait 600ms between emails (Resend allows 2 requests/second)
       if (i < uniqueVoters.length - 1) {
         await new Promise(resolve => setTimeout(resolve, 600))
       }

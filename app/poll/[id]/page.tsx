@@ -775,6 +775,7 @@ export default function PollPage() {
                     // Get the most recent response for this participant to get their name
                     const participantResponses = responses.filter(r => r.participant_email === email)
                     const participant = participantResponses[0] // Get first response (all should have same name)
+                    const displayName = participant?.participant_name?.trim() || email.split('@')[0] || email
                     
                     return (
                       <tr key={email} className="hover:bg-gray-50">
@@ -784,7 +785,7 @@ export default function PollPage() {
                               👤
                             </div>
                             <div className="min-w-0 flex-1">
-                              <div className="font-medium truncate">{participant?.participant_name || email}</div>
+                              <div className="font-medium truncate">{displayName}</div>
                             </div>
                           </div>
                         </td>

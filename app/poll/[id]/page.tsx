@@ -724,7 +724,7 @@ export default function PollPage() {
             
             {/* Grid Table */}
               <div className="overflow-x-auto border border-gray-200 rounded-lg" style={{ overscrollBehavior: 'contain' }}>
-                <table className="border-collapse m-0" style={{ width: '100%', tableLayout: 'auto', marginBottom: 0 }}>
+                <table className="border-collapse m-0 w-full" style={{ tableLayout: 'auto' }}>
                   <thead>
                     <tr className="bg-gray-50">
                       <th className="text-left p-3 border-r border-gray-200 min-w-[150px] font-medium">
@@ -780,14 +780,7 @@ export default function PollPage() {
                     return (
                       <tr key={email} className="hover:bg-gray-50">
                         <td className="p-3 border-r border-b border-gray-200">
-                          <div className="flex items-center space-x-2">
-                            <div className="w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center text-sm">
-                              👤
-                            </div>
-                            <div className="min-w-0 flex-1" style={{ lineHeight: 'normal' }}>
-                              <div className="font-medium truncate" style={{ lineHeight: '1.5' }}>{displayName}</div>
-                            </div>
-                          </div>
+                          <div className="font-medium truncate" style={{ lineHeight: '1.5' }}>{displayName}</div>
                         </td>
                         {options.map((option) => {
                           const response = responses.find(r => 

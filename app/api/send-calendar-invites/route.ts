@@ -214,12 +214,12 @@ export async function POST(request: NextRequest) {
           to: voter.participant_email,
           reply_to: poll.creator_email,
           subject: `📅 Calendar Invite: ${poll.title}`,
-          // Add calendar invite as attachment with proper content type
+          // Add calendar invite as attachment
+          // Resend will automatically detect .ics files and set appropriate content type
           attachments: [
             {
               filename: 'invite.ics',
-              content: Buffer.from(icsContent).toString('base64'),
-              contentType: 'text/calendar; charset=UTF-8; method=REQUEST'
+              content: Buffer.from(icsContent).toString('base64')
             }
           ],
           html: `

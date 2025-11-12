@@ -953,8 +953,8 @@ export default function PollPage() {
             {/* Time Options - Grid Layout */}
             <div>
               <h3 className="text-lg font-medium mb-4">Select your availability for each option:</h3>
-              <div className="overflow-x-auto border border-gray-200 rounded-lg">
-                <table className="w-full border-collapse">
+              <div className="overflow-x-auto border border-gray-200 rounded-lg" style={{ overscrollBehavior: 'contain' }}>
+                <table className="w-full border-collapse" style={{ minWidth: 'fit-content' }}>
                   <thead>
                     <tr className="bg-gray-50">
                       <th className="text-left p-3 border-r border-gray-200 min-w-[100px] font-medium">

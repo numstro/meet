@@ -479,8 +479,8 @@ export default function CreatePollPage() {
           </div>
 
           <div className="border border-gray-200 rounded-lg overflow-hidden">
-            <div className="overflow-x-auto">
-              <table ref={tableRef} className="w-full border-collapse">
+            <div className="overflow-x-auto" style={{ overscrollBehavior: 'contain' }}>
+              <table ref={tableRef} className="w-full border-collapse" style={{ minWidth: 'fit-content' }}>
               <thead>
                 <tr className="bg-gray-50">
                   <th className="text-left p-3 border-r border-gray-200 font-medium" style={{ minWidth: '140px', maxWidth: '180px' }}>

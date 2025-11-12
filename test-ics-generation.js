@@ -1,6 +1,7 @@
 // Test script to generate ICS file and check line folding
 const ical = require('ical-generator').default || require('ical-generator')
 const { ICalCalendarMethod, ICalAttendeeStatus, ICalAttendeeType, ICalEventStatus, ICalEventBusyStatus } = require('ical-generator')
+const { getVtimezoneComponent } = require('@touch4it/ical-timezones')
 
 // Simulate the same setup as the API route
 const poll = {
@@ -11,15 +12,51 @@ const poll = {
   creator_email: 'creator@example.com'
 }
 
-const start = new Date('2025-11-15T13:00:00Z')
-const end = new Date('2025-11-15T17:00:00Z')
+// Create dates in timezone (matching the new approach)
+// For test, use America/Los_Angeles timezone
+const testTimezone = 'America/Los_Angeles'
+const createLocalDate = (dateStr, hour, min) => {
+  const [y, m, d] = dateStr.split('-').map(Number)
+  const dateStrISO = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}T${String(hour).padStart(2, '0')}:${String(min).padStart(2, '0')}:00`
+  let candidateUTC = new Date(dateStrISO + 'Z')
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: testTimezone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false
+  })
+  for (let attempts = 0; attempts < 3; attempts++) {
+    const parts = formatter.formatToParts(candidateUTC)
+    const tzHour = parseInt(parts.find(p => p.type === 'hour')?.value || '0')
+    const tzMin = parseInt(parts.find(p => p.type === 'minute')?.value || '0')
+    if (tzHour === hour && tzMin === min) {
+      return candidateUTC
+    }
+    const desiredMinutes = hour * 60 + min
+    const actualMinutes = tzHour * 60 + tzMin
+    const offsetMinutes = desiredMinutes - actualMinutes
+    candidateUTC = new Date(candidateUTC.getTime() + (offsetMinutes * 60 * 1000))
+  }
+  return candidateUTC
+}
+
+const start = createLocalDate('2025-11-15', 13, 0) // 1 PM PST
+const end = createLocalDate('2025-11-15', 17, 0) // 5 PM PST
 const uniqueVoters = [
   { participant_name: 'Attendee 1', participant_email: 'attendee1@example.com' },
   { participant_name: 'Attendee 2', participant_email: 'attendee2@example.com' }
 ]
 
 // Create calendar (same as API route) - NO 'name' property (invalid ICS property)
+// Use timezone-aware times (matching Google Calendar's format)
 const calendar = ical({ 
+  timezone: {
+    name: testTimezone,
+    generator: getVtimezoneComponent // Generate VTIMEZONE blocks
+  },
   method: ICalCalendarMethod.REQUEST,
   prodId: {
     company: 'Numstro',
@@ -41,6 +78,7 @@ const eventUid = `${shortPollId}-${shortOptionId}-${timestamp}@${shortHostname}`
 const eventData = {
   start,
   end,
+  timezone: testTimezone, // Specify timezone for this event
   summary: poll.title,
   location: poll.location || undefined,
   url: 'https://meet.numstro.com/poll/test-id',

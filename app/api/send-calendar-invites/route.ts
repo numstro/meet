@@ -8,6 +8,7 @@ import ical, {
   ICalEventStatus,
   ICalEventBusyStatus
 } from 'ical-generator'
+import { getVtimezoneComponent } from '@touch4it/ical-timezones'
 
 export const dynamic = 'force-dynamic'
 
@@ -121,22 +122,25 @@ export async function POST(request: NextRequest) {
     const [startHour, startMin] = startTime.split(':').map(Number)
     const [endHour, endMin] = endTime.split(':').map(Number)
     
-    // Create dates in UTC for Gmail compatibility (avoids TZID/VTIMEZONE blocks)
-    // Convert user's local time to UTC by calculating timezone offset
+    // Create dates in the user's local timezone (matching Google Calendar's format)
+    // We'll use timezone-aware times with VTIMEZONE blocks for Gmail compatibility
     const dateStrRaw = pollOption.option_date // Format: YYYY-MM-DD
     const [year, month, day] = dateStrRaw.split('-').map(Number)
     
-    // Helper to convert local time in user's timezone to UTC Date
-    // Strategy: Use Intl API to find what UTC time corresponds to the desired local time
-    const localTimeToUTC = (dateStr: string, hour: number, min: number): Date => {
+    // Helper to create a Date object representing a local time in a specific timezone
+    // Strategy: Create a date as if the local time were UTC, then calculate the actual UTC time
+    // by finding what UTC time corresponds to the desired local time in the target timezone
+    const createLocalDate = (dateStr: string, hour: number, min: number): Date => {
       const [y, m, d] = dateStr.split('-').map(Number)
       
-      // Create a test date in UTC (we'll adjust it)
-      // Start with the desired local time as if it were UTC
-      let testUTC = new Date(Date.UTC(y, m - 1, d, hour, min, 0))
+      // Create a date string representing the desired local time
+      const dateStrISO = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}T${String(hour).padStart(2, '0')}:${String(min).padStart(2, '0')}:00`
       
-      // Check what local time this UTC time represents in the user's timezone
-      const localTimeStr = testUTC.toLocaleString('en-US', {
+      // Start with the assumption that this local time is UTC
+      let candidateUTC = new Date(dateStrISO + 'Z')
+      
+      // Check what local time this UTC time represents in the target timezone
+      const formatter = new Intl.DateTimeFormat('en-US', {
         timeZone: validTimezone,
         year: 'numeric',
         month: '2-digit',
@@ -146,31 +150,31 @@ export async function POST(request: NextRequest) {
         hour12: false
       })
       
-      // Parse the local time
-      const match = localTimeStr.match(/(\d+)\/(\d+)\/(\d+), (\d+):(\d+)/)
-      if (match) {
-        const [_, localMonth, localDay, localYear, localHour, localMin] = match.map(Number)
+      // Iteratively adjust until we get the right local time
+      // (This handles DST transitions correctly)
+      for (let attempts = 0; attempts < 3; attempts++) {
+        const parts = formatter.formatToParts(candidateUTC)
+        const tzHour = parseInt(parts.find(p => p.type === 'hour')?.value || '0')
+        const tzMin = parseInt(parts.find(p => p.type === 'minute')?.value || '0')
         
-        // If the local time matches what we want, we're done
-        if (localHour === hour && localMin === min && localMonth === m && localDay === d) {
-          return testUTC
+        // If we got the right time, we're done
+        if (tzHour === hour && tzMin === min) {
+          return candidateUTC
         }
         
-        // Otherwise, calculate the difference and adjust
-        const desiredLocalMinutes = hour * 60 + min
-        const actualLocalMinutes = localHour * 60 + localMin
-        const diffMinutes = desiredLocalMinutes - actualLocalMinutes
-        
-        // Adjust the UTC time
-        testUTC = new Date(testUTC.getTime() + (diffMinutes * 60 * 1000))
+        // Calculate offset and adjust
+        const desiredMinutes = hour * 60 + min
+        const actualMinutes = tzHour * 60 + tzMin
+        const offsetMinutes = desiredMinutes - actualMinutes
+        candidateUTC = new Date(candidateUTC.getTime() + (offsetMinutes * 60 * 1000))
       }
       
-      return testUTC
+      return candidateUTC
     }
     
-    // Convert local times to UTC
-    const start = localTimeToUTC(dateStrRaw, startHour, startMin)
-    const end = localTimeToUTC(dateStrRaw, endHour, endMin)
+    // Create dates representing the local times in the user's timezone
+    const start = createLocalDate(dateStrRaw, startHour, startMin)
+    const end = createLocalDate(dateStrRaw, endHour, endMin)
     
     // Check if event is in the past (compare dates only, ignoring time to avoid timezone issues)
     // Get today's date at midnight in the same timezone
@@ -205,12 +209,15 @@ export async function POST(request: NextRequest) {
     }
     const timeStr = `${formatTime(start)} - ${formatTime(end)}`
 
-    // Create calendar event with UTC times (no timezone) for maximum Gmail compatibility
-    // Gmail prefers simpler ICS files without TZID/VTIMEZONE blocks
+    // Create calendar event with timezone-aware times (matching Google Calendar's format)
+    // This will generate VTIMEZONE blocks automatically for Gmail compatibility
     // METHOD:REQUEST is required for Gmail to recognize this as an interactive meeting invite
     // NOTE: Do NOT include 'name' property - it's not a valid ICS property and causes Gmail to reject
     const calendar = ical({ 
-      // Omit timezone to use UTC (Gmail-friendly)
+      timezone: {
+        name: validTimezone,
+        generator: getVtimezoneComponent // Generate VTIMEZONE blocks (matching Google's format)
+      },
       method: ICalCalendarMethod.REQUEST, // Required for Gmail to render inline event card
       prodId: {
         company: 'Numstro',
@@ -233,7 +240,7 @@ export async function POST(request: NextRequest) {
     const eventData: any = {
       start,
       end,
-      // Omit timezone to use UTC (Gmail-friendly, avoids TZID/VTIMEZONE blocks)
+      timezone: validTimezone, // Specify timezone for this event (will use TZID format like Google)
       summary: poll.title,
       location: poll.location || undefined, // Only include if not empty
       url: `${request.nextUrl.origin}/poll/${pollId}`,

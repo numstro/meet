@@ -13,6 +13,7 @@
     "@heroicons/react": "^2.0.18",
     "@supabase/auth-helpers-nextjs": "^0.8.7",
     "@supabase/supabase-js": "^2.38.4",
+    "@touch4it/ical-timezones": "^1.9.0",
     "@types/nodemailer": "^7.0.3",
     "autoprefixer": "^10.4.16",
     "date-fns": "^2.30.0",

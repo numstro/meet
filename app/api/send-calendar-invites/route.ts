@@ -129,9 +129,15 @@ export async function POST(request: NextRequest) {
     const start = new Date(`${dateStrRaw}T${String(startHour).padStart(2, '0')}:${String(startMin).padStart(2, '0')}:00`)
     const end = new Date(`${dateStrRaw}T${String(endHour).padStart(2, '0')}:${String(endMin).padStart(2, '0')}:00`)
     
-    // Check if event is in the past
-    const now = new Date()
-    if (start < now) {
+    // Check if event is in the past (compare dates only, ignoring time to avoid timezone issues)
+    // Get today's date at midnight in the same timezone
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const eventDate = new Date(start)
+    eventDate.setHours(0, 0, 0, 0)
+    
+    // Only reject if the event date is before today (not same day)
+    if (eventDate < today) {
       return NextResponse.json(
         { error: 'Cannot send calendar invites for events in the past' },
         { status: 400 }

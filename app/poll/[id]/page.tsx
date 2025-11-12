@@ -75,6 +75,8 @@ export default function PollPage() {
 
   // Delete poll state
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [showErrorModal, setShowErrorModal] = useState(false)
+  const [errorMessage, setErrorMessage] = useState('')
   const [deleteEmail, setDeleteEmail] = useState('')
   const [isDeleting, setIsDeleting] = useState(false)
 
@@ -444,7 +446,8 @@ export default function PollPage() {
     }
 
     if (creatorEmailForInvite.toLowerCase() !== poll.creator_email.toLowerCase()) {
-      setError('Please enter the correct creator email address')
+      setErrorMessage('Please enter the correct creator email address')
+      setShowErrorModal(true)
       return
     }
 
@@ -503,7 +506,8 @@ export default function PollPage() {
 
   const deletePoll = async () => {
     if (!poll || deleteEmail.toLowerCase() !== poll.creator_email.toLowerCase()) {
-      setError('Please enter the correct creator email address')
+      setErrorMessage('Please enter the correct creator email address')
+      setShowErrorModal(true)
       return
     }
 
@@ -535,7 +539,15 @@ export default function PollPage() {
     )
   }
 
-  if (error || !poll) {
+  // Show error modal if there's an error (using useEffect to avoid state update during render)
+  useEffect(() => {
+    if (error && !showErrorModal) {
+      setShowErrorModal(true)
+      setErrorMessage(error)
+    }
+  }, [error, showErrorModal])
+
+  if (!poll && !isLoading) {
     return (
       <div className="max-w-2xl mx-auto px-4 py-6">
         <div className="text-center">
@@ -1169,12 +1181,8 @@ export default function PollPage() {
                           setCustomEndTime(defaults.end)
                         }}
                         className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
-                          selectedOptionId === option.id && isTopChoice
-                            ? 'border-red-500 bg-red-100'
-                            : selectedOptionId === option.id
+                          selectedOptionId === option.id
                             ? 'border-blue-500 bg-blue-50'
-                            : isTopChoice
-                            ? 'border-red-400 bg-red-50'
                             : 'border-gray-200 hover:border-gray-300'
                         }`}
                       >
@@ -1182,14 +1190,14 @@ export default function PollPage() {
                           <div className="flex-1">
                             <div className="flex items-center gap-2 mb-1">
                               {selectedOptionId === option.id && (
-                                <span className={isTopChoice ? 'text-red-600 font-bold' : 'text-blue-600'}>✓</span>
+                                <span className="text-blue-600">✓</span>
                               )}
                               {isTopChoice && (
-                                <span className={`text-xs font-semibold ${selectedOptionId === option.id ? 'text-red-700' : 'text-red-600'}`}>
+                                <span className="text-xs font-semibold text-red-600">
                                   BEST OPTION
                                 </span>
                               )}
-                              <span className="font-semibold text-gray-900">{dateStr}</span>
+                              <span className={`font-semibold ${isTopChoice ? 'text-red-600' : 'text-gray-900'}`}>{dateStr}</span>
                             </div>
                             <div className="text-sm text-gray-600 mb-2">{timeLabel}</div>
                             <div className="flex gap-4 text-xs text-gray-500">
@@ -1327,6 +1335,41 @@ export default function PollPage() {
                 className="flex-1 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 {isDeleting ? 'Deleting...' : 'Delete Poll'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Error Modal */}
+      {showErrorModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-semibold text-gray-900">Error</h3>
+                <button
+                  onClick={() => {
+                    setShowErrorModal(false)
+                    setErrorMessage('')
+                  }}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  ✕
+                </button>
+              </div>
+              <div className="text-center mb-6">
+                <div className="text-red-600 text-5xl mb-4">❌</div>
+                <p className="text-gray-600">{errorMessage || 'Something went wrong. Please try again.'}</p>
+              </div>
+              <button
+                onClick={() => {
+                  setShowErrorModal(false)
+                  setErrorMessage('')
+                }}
+                className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+              >
+                OK
               </button>
             </div>
           </div>

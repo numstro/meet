@@ -265,11 +265,29 @@ export async function POST(request: NextRequest) {
     }
     
     // Fix line folding: ICS spec requires lines >75 chars to be folded with CRLF + space
-    // Split by CRLF, then fold long lines properly
-    const lines = icsContent.split(/\r\n/)
-    const foldedLines: string[] = []
+    // First, unfold any existing folded lines (lines starting with space are continuations)
+    const unfoldedLines: string[] = []
+    let currentLine = ''
     
-    for (const line of lines) {
+    for (const line of icsContent.split(/\r\n/)) {
+      if (line.startsWith(' ') || line.startsWith('\t')) {
+        // This is a continuation line - append to current line (without leading space)
+        currentLine += line.substring(1)
+      } else {
+        // New line - save previous and start new
+        if (currentLine) {
+          unfoldedLines.push(currentLine)
+        }
+        currentLine = line
+      }
+    }
+    if (currentLine) {
+      unfoldedLines.push(currentLine)
+    }
+    
+    // Now properly fold lines that are >75 characters
+    const foldedLines: string[] = []
+    for (const line of unfoldedLines) {
       if (line.length <= 75) {
         foldedLines.push(line)
       } else {

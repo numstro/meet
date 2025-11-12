@@ -871,7 +871,7 @@ export default function PollPage() {
                                       delete tooltipRefs.current[option.id]
                                     }
                                   }}
-                                  className={`absolute left-1/2 bottom-full mb-2 sm:bottom-auto sm:top-full sm:mt-2 transform -translate-x-1/2 z-50 transition-opacity duration-200 ${
+                                  className={`absolute left-1/2 bottom-full mb-2 sm:bottom-auto sm:top-full sm:mb-0 sm:mt-2 transform -translate-x-1/2 z-50 transition-opacity duration-200 ${
                                     openCommentTooltip === option.id 
                                       ? 'opacity-100 pointer-events-auto sm:opacity-0 sm:group-hover:opacity-100' 
                                       : 'opacity-0 group-hover:opacity-100 sm:group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto sm:group-hover:pointer-events-auto'
@@ -879,17 +879,7 @@ export default function PollPage() {
                                   onClick={(e) => e.stopPropagation()}
                                 >
                                   <div className="bg-gray-900 text-white text-xs rounded-lg shadow-lg p-3 min-w-[200px] max-w-[300px]">
-                                    <div className="flex justify-between items-center mb-2">
-                                      <div className="font-semibold">💬 Comments:</div>
-                                      <button
-                                        type="button"
-                                        onClick={() => setOpenCommentTooltip(null)}
-                                        className="text-gray-400 hover:text-white text-sm ml-2"
-                                        aria-label="Close comments"
-                                      >
-                                        ✕
-                                      </button>
-                                    </div>
+                                    <div className="font-semibold mb-2">💬 Comments:</div>
                                     <div className="space-y-2 max-h-48 overflow-y-auto">
                                       {optionComments.map((c, idx) => (
                                         <div key={idx} className="border-t border-gray-700 pt-2 first:border-t-0 first:pt-0">

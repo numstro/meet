@@ -310,10 +310,28 @@ export async function POST(request: NextRequest) {
     icsContent = icsContent.replace(/^DESCRIPTION:\s*$/gm, '')
     
     // Ensure VTIMEZONE block is present (critical for Gmail)
-    // If it's missing, the timezone-aware times won't work
+    // If it's missing, manually inject it using getVtimezoneComponent
     if (!icsContent.includes('BEGIN:VTIMEZONE')) {
-      console.error('WARNING: VTIMEZONE block is missing from ICS file!')
-      // This shouldn't happen if getVtimezoneComponent is working
+      console.error('WARNING: VTIMEZONE block is missing from ICS file! Manually injecting...')
+      try {
+        // Generate VTIMEZONE block manually
+        const vtimezoneBlock = getVtimezoneComponent(validTimezone)
+        // Insert VTIMEZONE block after METHOD:REQUEST and before BEGIN:VEVENT
+        // Format: METHOD:REQUEST\r\n[VTIMEZONE block]\r\nBEGIN:VEVENT
+        if (vtimezoneBlock) {
+          const vtimezoneString = vtimezoneBlock.toString().replace(/\n/g, '\r\n')
+          // Insert after METHOD:REQUEST line
+          icsContent = icsContent.replace(
+            /(METHOD:REQUEST\r\n)/,
+            `$1${vtimezoneString}\r\n`
+          )
+          console.log('Successfully injected VTIMEZONE block')
+        }
+      } catch (error) {
+        console.error('Failed to inject VTIMEZONE block:', error)
+        // If we can't inject VTIMEZONE, Gmail won't be able to parse TZID references
+        // This is a critical error - the ICS file won't work without it
+      }
     }
     
     // Fix ORGANIZER format: Remove quotes around CN value (Google Calendar doesn't use quotes)

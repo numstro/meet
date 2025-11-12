@@ -794,7 +794,10 @@ export default function PollPage() {
                           const bestOptions = getBestOptions()
                           const isTopChoice = bestOptions.some(best => best.option_id === option.id)
                           
-                          // Get all comments for this time slot (from all participants)
+                          // Check if THIS participant has a comment for this time slot
+                          const hasComment = response?.comment?.trim()
+                          
+                          // Get all comments for this time slot (from all participants) for the hover tooltip
                           const optionComments = responses
                             .filter(r => r.option_id === option.id && r.comment?.trim())
                             .map(r => ({
@@ -823,7 +826,7 @@ export default function PollPage() {
                                     }
                                   </div>
                                 )}
-                                {hasComments && (
+                                {hasComment && (
                                   <span className="text-xs opacity-60">💬</span>
                                 )}
                               </div>
@@ -1029,7 +1032,7 @@ export default function PollPage() {
                                     }`}
                                     title={hasComment ? `Comment: ${userComments[option.id]}` : 'Add a comment'}
                                   >
-                                    {hasComment ? '💬' : '💭'}
+                                    {hasComment ? '💬' : '➕'}
                                     <span className="ml-1">{hasComment ? 'Edit comment' : 'Add comment'}</span>
                                   </button>
                                   

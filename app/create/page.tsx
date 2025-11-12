@@ -261,7 +261,8 @@ export default function CreatePollPage() {
       // Redirect directly to the poll with creator info for auto-population
       const params = new URLSearchParams({
         creatorName: pollData.creatorName,
-        creatorEmail: pollData.creatorEmail
+        creatorEmail: pollData.creatorEmail,
+        token: creatorToken // Include token in URL for verification
       })
       router.push(`/poll/${pollId}?${params.toString()}`)
     } catch (err: any) {

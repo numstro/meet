@@ -723,8 +723,8 @@ export default function PollPage() {
             </div>
             
             {/* Grid Table */}
-              <div className="overflow-x-auto border border-gray-200 rounded-lg" style={{ overscrollBehavior: 'contain' }}>
-                <table className="border-collapse m-0 w-full" style={{ tableLayout: 'auto' }}>
+              <div className="overflow-x-auto border border-gray-200 rounded-lg" style={{ overscrollBehavior: 'contain', height: 'fit-content' }}>
+                <table className="border-collapse m-0 w-full" style={{ tableLayout: 'auto', borderSpacing: 0 }}>
                   <thead>
                     <tr className="bg-gray-50">
                       <th className="text-left p-3 border-r border-gray-200 min-w-[150px] font-medium">

@@ -174,7 +174,7 @@ export async function POST(request: NextRequest) {
         await resend.emails.send({
           from: 'Meetup <noreply@numstro.com>',
           to: voter.participant_email,
-          replyTo: poll.creator_email,
+          reply_to: poll.creator_email,
           subject: `📅 Calendar Invite: ${poll.title}`,
           html: `
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">

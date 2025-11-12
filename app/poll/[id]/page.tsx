@@ -772,7 +772,9 @@ export default function PollPage() {
                 </thead>
                 <tbody>
                   {Array.from(new Set(responses.map(r => r.participant_email))).map((email, index) => {
-                    const participant = responses.find(r => r.participant_email === email)
+                    // Get the most recent response for this participant to get their name
+                    const participantResponses = responses.filter(r => r.participant_email === email)
+                    const participant = participantResponses[0] // Get first response (all should have same name)
                     
                     return (
                       <tr key={email} className="hover:bg-gray-50">
@@ -781,10 +783,9 @@ export default function PollPage() {
                             <div className="w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center text-sm">
                               👤
                             </div>
-                            <div className="min-w-0">
-                              <div className="font-medium truncate">{participant?.participant_name}</div>
+                            <div className="min-w-0 flex-1">
+                              <div className="font-medium truncate">{participant?.participant_name || email}</div>
                             </div>
-                            <button className="text-blue-600 hover:text-blue-800 text-sm">✏️</button>
                           </div>
                         </td>
                         {options.map((option) => {

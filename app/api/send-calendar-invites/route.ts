@@ -121,13 +121,56 @@ export async function POST(request: NextRequest) {
     const [startHour, startMin] = startTime.split(':').map(Number)
     const [endHour, endMin] = endTime.split(':').map(Number)
     
-    // Create dates in local timezone
-    // Use the date string and construct a proper date-time string
+    // Create dates in UTC for Gmail compatibility (avoids TZID/VTIMEZONE blocks)
+    // Convert user's local time to UTC by calculating timezone offset
     const dateStrRaw = pollOption.option_date // Format: YYYY-MM-DD
+    const [year, month, day] = dateStrRaw.split('-').map(Number)
     
-    // Create date objects in local timezone (will be converted to UTC by ical-generator)
-    const start = new Date(`${dateStrRaw}T${String(startHour).padStart(2, '0')}:${String(startMin).padStart(2, '0')}:00`)
-    const end = new Date(`${dateStrRaw}T${String(endHour).padStart(2, '0')}:${String(endMin).padStart(2, '0')}:00`)
+    // Helper to convert local time in user's timezone to UTC Date
+    // Strategy: Use Intl API to find what UTC time corresponds to the desired local time
+    const localTimeToUTC = (dateStr: string, hour: number, min: number): Date => {
+      const [y, m, d] = dateStr.split('-').map(Number)
+      
+      // Create a test date in UTC (we'll adjust it)
+      // Start with the desired local time as if it were UTC
+      let testUTC = new Date(Date.UTC(y, m - 1, d, hour, min, 0))
+      
+      // Check what local time this UTC time represents in the user's timezone
+      const localTimeStr = testUTC.toLocaleString('en-US', {
+        timeZone: validTimezone,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+      })
+      
+      // Parse the local time
+      const match = localTimeStr.match(/(\d+)\/(\d+)\/(\d+), (\d+):(\d+)/)
+      if (match) {
+        const [_, localMonth, localDay, localYear, localHour, localMin] = match.map(Number)
+        
+        // If the local time matches what we want, we're done
+        if (localHour === hour && localMin === min && localMonth === m && localDay === d) {
+          return testUTC
+        }
+        
+        // Otherwise, calculate the difference and adjust
+        const desiredLocalMinutes = hour * 60 + min
+        const actualLocalMinutes = localHour * 60 + localMin
+        const diffMinutes = desiredLocalMinutes - actualLocalMinutes
+        
+        // Adjust the UTC time
+        testUTC = new Date(testUTC.getTime() + (diffMinutes * 60 * 1000))
+      }
+      
+      return testUTC
+    }
+    
+    // Convert local times to UTC
+    const start = localTimeToUTC(dateStrRaw, startHour, startMin)
+    const end = localTimeToUTC(dateStrRaw, endHour, endMin)
     
     // Check if event is in the past (compare dates only, ignoring time to avoid timezone issues)
     // Get today's date at midnight in the same timezone
@@ -162,12 +205,12 @@ export async function POST(request: NextRequest) {
     }
     const timeStr = `${formatTime(start)} - ${formatTime(end)}`
 
-    // Create calendar event with explicit timezone
-    // Use the user's detected timezone to ensure times are interpreted correctly by Gmail/calendar apps
+    // Create calendar event with UTC times (no timezone) for maximum Gmail compatibility
+    // Gmail prefers simpler ICS files without TZID/VTIMEZONE blocks
     // METHOD:REQUEST is required for Gmail to recognize this as an interactive meeting invite
     const calendar = ical({ 
       name: poll.title,
-      timezone: validTimezone,
+      // Omit timezone to use UTC (Gmail-friendly)
       method: ICalCalendarMethod.REQUEST, // Required for Gmail to render inline event card
       prodId: {
         company: 'Numstro',
@@ -179,7 +222,7 @@ export async function POST(request: NextRequest) {
     const event = calendar.createEvent({
       start,
       end,
-      timezone: validTimezone, // Use detected timezone from user's browser
+      // Omit timezone to use UTC (Gmail-friendly, avoids TZID/VTIMEZONE blocks)
       summary: poll.title,
       description: poll.description || '',
       location: poll.location || '',
@@ -204,7 +247,22 @@ export async function POST(request: NextRequest) {
     })
 
     // Generate .ics file content
-    const icsContent = calendar.toString()
+    let icsContent = calendar.toString()
+    
+    // Ensure CALSCALE:GREGORIAN is present (Gmail-friendly)
+    // Check if it's already there, if not add it after VERSION
+    if (!icsContent.includes('CALSCALE:GREGORIAN')) {
+      icsContent = icsContent.replace(
+        /(VERSION:2\.0)/,
+        '$1\r\nCALSCALE:GREGORIAN'
+      )
+    }
+    
+    // Ensure CRLF line endings (Gmail-friendly)
+    // ical-generator should use CRLF, but ensure it
+    if (!icsContent.includes('\r\n')) {
+      icsContent = icsContent.replace(/\n/g, '\r\n')
+    }
     
     // Validate .ics content is not empty
     if (!icsContent || icsContent.trim().length === 0) {

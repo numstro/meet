@@ -502,24 +502,16 @@ END:VTIMEZONE`,
           replyTo: poll.creator_email,
           subject: `📅 Calendar Invite: ${poll.title}`,
           html: htmlContent.replace('Hi there,', `Hi ${voter.participant_name || 'there'},`),
-          // CRITICAL: Use icalEvent helper to ensure base64 encoding (not quoted-printable)
-          // Gmail's parser fails on QP encoding - icalEvent ensures proper base64
+          // CRITICAL: Use icalEvent helper with Buffer to ensure base64 encoding (not quoted-printable)
+          // Gmail's parser fails on QP encoding - icalEvent with Buffer ensures proper base64
+          // Send only ONE calendar copy (icalEvent creates inline part) - no duplicate attachment
           icalEvent: {
             method: 'REQUEST',
             filename: 'invite.ics',
-            content: icsBuffer // Buffer ensures base64 encoding
-          },
-          // Also keep as attachment so users can download the .ics file
-          attachments: [
-            {
-              filename: 'invite.ics',
-              content: icsBuffer,
-              contentType: 'text/calendar; method=REQUEST; charset=UTF-8',
-              headers: {
-                'Content-Class': 'urn:content-classes:calendarmessage' // Optional Outlook helper
-              }
-            }
-          ]
+            content: icsBuffer // Buffer => base64 inline part (not QP)
+          }
+          // Removed duplicate attachment - icalEvent already provides the calendar part
+          // Users can still download from Gmail's inline calendar card
         })
         
         console.log(`[Calendar Invites] Successfully sent email to ${voter.participant_email}`)

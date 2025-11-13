@@ -488,7 +488,9 @@ END:VTIMEZONE`,
     console.log(`[Calendar Invites] Preparing to send ${uniqueVoters.length} email(s) to:`, uniqueVoters.map(v => v.participant_email))
     
     // Ensure ICS content is CRLF-normalized and ready for Buffer
-    const icsBuffer = Buffer.from(icsContent, 'utf8')
+    // Final ICS string with all fixes applied
+    const finalIcs = icsContent.replace(/\r?\n/g, '\r\n').replace(/\r\n /g, '')
+    const icsBuffer = Buffer.from(finalIcs, 'utf8')
     
     for (let i = 0; i < uniqueVoters.length; i++) {
       const voter = uniqueVoters[i]
@@ -500,16 +502,13 @@ END:VTIMEZONE`,
           replyTo: poll.creator_email,
           subject: `📅 Calendar Invite: ${poll.title}`,
           html: htmlContent.replace('Hi there,', `Hi ${voter.participant_name || 'there'},`),
-          // CRITICAL: Gmail needs the calendar as an "alternatives" part (inline body), not just attachment
-          // This gives Gmail the canonical inline calendar it expects for Accept/Decline buttons
-          // MUST be base64 (not quoted-printable) - Gmail's parser fails on QP encoding
-          alternatives: [
-            {
-              contentType: 'text/calendar; method=REQUEST; charset=UTF-8',
-              content: icsBuffer, // Already a Buffer with CRLF-normalized content
-              encoding: 'base64' // Explicitly set base64 to prevent quoted-printable
-            }
-          ],
+          // CRITICAL: Use icalEvent helper to ensure base64 encoding (not quoted-printable)
+          // Gmail's parser fails on QP encoding - icalEvent ensures proper base64
+          icalEvent: {
+            method: 'REQUEST',
+            filename: 'invite.ics',
+            content: icsBuffer // Buffer ensures base64 encoding
+          },
           // Also keep as attachment so users can download the .ics file
           attachments: [
             {

@@ -282,6 +282,10 @@ export async function POST(request: NextRequest) {
     // Match lines that start with UID, ATTENDEE, or ORGANIZER, then remove any continuation lines
     icsContent = icsContent.replace(/(^(?:UID|ATTENDEE|ORGANIZER)[^\r\n]*)\r\n ([^\r\n]+)/gm, '$1$2')
     
+    // 5. Additional safety: unfold any remaining soft wraps (CRLF + space) to be extra-safe
+    // This ensures no folded lines remain that could confuse Gmail
+    icsContent = icsContent.replace(/\r\n /g, '')
+    
     // 3. Ensure VTIMEZONE block is present (Google Calendar includes this, and TZID format requires it)
     // Match Google Calendar's exact VTIMEZONE format
     if (!icsContent.includes('BEGIN:VTIMEZONE')) {
@@ -503,8 +507,7 @@ END:VTIMEZONE`,
               contentType: 'text/calendar; method=REQUEST; charset=UTF-8', // Critical for Gmail inline cards
               contentDisposition: 'inline', // Gmail needs inline, not attachment
               headers: {
-                'Content-Class': 'urn:content-classes:calendarmessage',
-                'Content-Type': 'text/calendar; method=REQUEST; charset=UTF-8' // Override any auto-added parameters
+                'Content-Class': 'urn:content-classes:calendarmessage' // Optional Outlook helper, but don't duplicate Content-Type
               }
             }
           ]

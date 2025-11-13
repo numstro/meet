@@ -500,14 +500,22 @@ END:VTIMEZONE`,
           replyTo: poll.creator_email,
           subject: `📅 Calendar Invite: ${poll.title}`,
           html: htmlContent.replace('Hi there,', `Hi ${voter.participant_name || 'there'},`),
+          // CRITICAL: Gmail needs the calendar as an "alternatives" part (inline body), not just attachment
+          // This gives Gmail the canonical inline calendar it expects for Accept/Decline buttons
+          alternatives: [
+            {
+              contentType: 'text/calendar; method=REQUEST; charset=UTF-8',
+              content: icsBuffer // Already a Buffer with CRLF-normalized content
+            }
+          ],
+          // Also keep as attachment so users can download the .ics file
           attachments: [
             {
               filename: 'invite.ics',
               content: icsBuffer,
-              contentType: 'text/calendar; method=REQUEST; charset=UTF-8', // Critical for Gmail inline cards
-              contentDisposition: 'inline', // Gmail needs inline, not attachment
+              contentType: 'text/calendar; method=REQUEST; charset=UTF-8',
               headers: {
-                'Content-Class': 'urn:content-classes:calendarmessage' // Optional Outlook helper, but don't duplicate Content-Type
+                'Content-Class': 'urn:content-classes:calendarmessage' // Optional Outlook helper
               }
             }
           ]

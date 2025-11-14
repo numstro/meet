@@ -92,9 +92,11 @@ export default function MonitoringDashboard() {
   const loadStats = async () => {
     setIsLoading(true)
     try {
+      // Use database time to avoid timezone issues
+      // Calculate 24 hours ago in UTC (matching Supabase's timezone)
       const now = new Date()
-      const yesterday = subDays(now, 1)
-      const weekAgo = subDays(now, 7)
+      const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000)
+      const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
 
       // Get overall poll statistics
       const { data: allPolls } = await supabase
@@ -104,7 +106,7 @@ export default function MonitoringDashboard() {
       const { data: pollsLast24h } = await supabase
         .from('polls')
         .select('created_at')
-        .gte('created_at', yesterday.toISOString())
+        .gte('created_at', yesterdayUTC)
 
       const { data: pollsLast7d } = await supabase
         .from('polls')
@@ -119,13 +121,13 @@ export default function MonitoringDashboard() {
       const { data: responsesLast24h } = await supabase
         .from('poll_responses')
         .select('created_at')
-        .gte('created_at', yesterday.toISOString())
+        .gte('created_at', yesterdayUTC)
 
       // Get rate limit statistics
       const { data: rateLimits } = await supabase
         .from('rate_limits')
         .select('ip_address, creator_email, creator_name, created_at')
-        .gte('created_at', yesterday.toISOString())
+        .gte('created_at', yesterdayUTC)
 
       // Get calendar invite statistics (from rate_limits table - calendar invites are tracked there)
       // Calendar invites have creator_email set
@@ -134,15 +136,21 @@ export default function MonitoringDashboard() {
         .select('created_at, ip_address, recipient_count')
         .not('creator_email', 'is', null) // Calendar invites have creator_email
 
+      // Use RPC or raw SQL to get accurate 24h data (avoids timezone issues)
+      // Alternative: Use the same logic as SQL - NOW() - INTERVAL '24 hours'
+      // For now, ensure we're using UTC timezone consistently
+      const yesterdayUTC = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+      
       const { data: invitesLast24h, error: invitesError } = await supabase
         .from('rate_limits')
         .select('created_at, ip_address, recipient_count, creator_email')
         .not('creator_email', 'is', null)
-        .gte('created_at', yesterday.toISOString())
+        .gte('created_at', yesterdayUTC)
 
       // Debug logging
       console.log('[Monitoring] Calendar invites query:', {
-        yesterday: yesterday.toISOString(),
+        yesterdayUTC: yesterdayUTC,
+        yesterdayJS: yesterday.toISOString(),
         now: now.toISOString(),
         invitesFound: invitesLast24h?.length || 0,
         invitesData: invitesLast24h,
@@ -197,11 +205,12 @@ export default function MonitoringDashboard() {
       const { data: pollsLast24hWithIPs, error: pollsIPError } = await supabase
         .from('polls')
         .select('creator_ip, created_at')
-        .gte('created_at', yesterday.toISOString())
+        .gte('created_at', yesterdayUTC)
         .not('creator_ip', 'is', null)
       
       console.log('[Monitoring] Polls query:', {
-        yesterday: yesterday.toISOString(),
+        yesterdayUTC: yesterdayUTC,
+        yesterdayJS: yesterday.toISOString(),
         pollsFound: pollsLast24hWithIPs?.length || 0,
         pollsData: pollsLast24hWithIPs,
         error: pollsIPError
@@ -271,10 +280,12 @@ export default function MonitoringDashboard() {
       setEmailIPCorrelations(emailIPCorrelations)
 
       // Get daily statistics for the last 7 days
+      // Use UTC dates to match database timezone
       const dailyStatsPromises = Array.from({ length: 7 }, (_, i) => {
         const date = subDays(now, i)
-        const dayStart = startOfDay(date).toISOString()
-        const dayEnd = endOfDay(date).toISOString()
+        // Convert to UTC start/end of day
+        const dayStart = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), 0, 0, 0)).toISOString()
+        const dayEnd = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), 23, 59, 59, 999)).toISOString()
 
         return Promise.all([
           supabase

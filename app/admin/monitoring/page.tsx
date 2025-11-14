@@ -128,16 +128,15 @@ export default function MonitoringDashboard() {
         .gte('created_at', yesterday.toISOString())
 
       // Get calendar invite statistics (from rate_limits table - calendar invites are tracked there)
-      // We can identify calendar invites by checking if they have creator_email (poll invites) vs poll creation
-      // For now, we'll count all rate_limits entries as potential invites, but we should add a type field later
+      // Calendar invites have creator_email set
       const { data: allInvites } = await supabase
         .from('rate_limits')
-        .select('created_at, ip_address')
+        .select('created_at, ip_address, recipient_count')
         .not('creator_email', 'is', null) // Calendar invites have creator_email
 
       const { data: invitesLast24h } = await supabase
         .from('rate_limits')
-        .select('created_at, ip_address')
+        .select('created_at, ip_address, recipient_count')
         .not('creator_email', 'is', null)
         .gte('created_at', yesterday.toISOString())
 
@@ -148,9 +147,10 @@ export default function MonitoringDashboard() {
       })
       const invitesRateLimitHits = Object.values(inviteIPCounts).filter(count => count >= 100).length
 
-      // Estimate emails sent (we don't track exact count, but we can estimate based on invites)
-      // Each invite typically sends to multiple recipients, but we don't have exact count
-      // For now, we'll show invite count and note that each invite may send multiple emails
+      // Calculate exact emails sent (sum of recipient_count, fallback to invite count if null)
+      const emailsSentLast24h = invitesLast24h?.reduce((sum: number, invite: any) => {
+        return sum + (invite.recipient_count || 1) // Default to 1 if recipient_count not set (old records)
+      }, 0) || 0
 
       // Get all rate limits for email-IP correlation analysis - SIMPLIFIED
       const { data: allRateLimits } = await supabase
@@ -192,7 +192,7 @@ export default function MonitoringDashboard() {
         rateLimitHits,
         totalInvitesSent: allInvites?.length || 0,
         invitesLast24h: invitesLast24h?.length || 0,
-        emailsSentLast24h: invitesLast24h?.length || 0, // Estimate: 1 email per invite (actual is higher)
+        emailsSentLast24h: emailsSentLast24h, // Exact count from recipient_count field
         invitesRateLimitHits
       }
 
@@ -260,18 +260,25 @@ export default function MonitoringDashboard() {
             .lte('created_at', dayEnd),
           supabase
             .from('rate_limits')
-            .select('created_at')
+            .select('created_at, recipient_count')
             .not('creator_email', 'is', null)
             .gte('created_at', dayStart)
             .lte('created_at', dayEnd)
-        ]).then(([polls, responses, rateLimits, invites]) => ({
-          date: format(date, 'yyyy-MM-dd'),
-          polls_created: polls.data?.length || 0,
-          responses_submitted: responses.data?.length || 0,
-          unique_ips: new Set(rateLimits.data?.map((rl: RateLimit) => rl.ip_address) || []).size,
-          invites_sent: invites.data?.length || 0,
-          emails_sent: invites.data?.length || 0 // Estimate
-        }))
+        ]).then(([polls, responses, rateLimits, invites]) => {
+          // Calculate exact emails sent for this day
+          const emailsSent = invites.data?.reduce((sum: number, invite: any) => {
+            return sum + (invite.recipient_count || 1)
+          }, 0) || 0
+          
+          return {
+            date: format(date, 'yyyy-MM-dd'),
+            polls_created: polls.data?.length || 0,
+            responses_submitted: responses.data?.length || 0,
+            unique_ips: new Set(rateLimits.data?.map((rl: RateLimit) => rl.ip_address) || []).size,
+            invites_sent: invites.data?.length || 0,
+            emails_sent: emailsSent
+          }
+        })
       })
 
       const dailyStatsResults = await Promise.all(dailyStatsPromises)
@@ -441,11 +448,11 @@ export default function MonitoringDashboard() {
               </div>
               <div className="ml-4">
                 <h3 className="text-lg font-semibold text-gray-900">{stats.uniqueIpsLast24h}</h3>
-                <p className="text-gray-600">Unique Users (24h)</p>
+                <p className="text-gray-600">Unique IPs (24h)</p>
               </div>
             </div>
             <div className="mt-2 text-sm text-gray-500">
-              Active IP addresses
+              IPs that created polls (proxy for users)
             </div>
           </div>
 
@@ -490,12 +497,12 @@ export default function MonitoringDashboard() {
                 <span className="text-2xl">✉️</span>
               </div>
               <div className="ml-4">
-                <h3 className="text-lg font-semibold text-gray-900">~{stats.emailsSentLast24h}</h3>
+                <h3 className="text-lg font-semibold text-gray-900">{stats.emailsSentLast24h}</h3>
                 <p className="text-gray-600">Emails Sent (24h)</p>
               </div>
             </div>
             <div className="mt-2 text-sm text-gray-500">
-              Estimated (actual may be higher)
+              Exact count (from recipient tracking)
             </div>
           </div>
 
@@ -514,18 +521,23 @@ export default function MonitoringDashboard() {
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow p-6">
+          <div className={`bg-white rounded-lg shadow p-6 ${((stats.emailsSentLast24h * 0.10) / 1000) > 1 ? 'ring-2 ring-red-500' : ''}`}>
             <div className="flex items-center">
-              <div className="p-3 bg-teal-100 rounded-full">
+              <div className={`p-3 rounded-full ${((stats.emailsSentLast24h * 0.10) / 1000) > 1 ? 'bg-red-100' : 'bg-teal-100'}`}>
                 <span className="text-2xl">💰</span>
               </div>
               <div className="ml-4">
-                <h3 className="text-lg font-semibold text-gray-900">${((stats.emailsSentLast24h * 0.10) / 1000).toFixed(2)}</h3>
-                <p className="text-gray-600">SES Cost (24h est.)</p>
+                <h3 className={`text-lg font-semibold ${((stats.emailsSentLast24h * 0.10) / 1000) > 1 ? 'text-red-600' : 'text-gray-900'}`}>
+                  ${((stats.emailsSentLast24h * 0.10) / 1000).toFixed(2)}
+                </h3>
+                <p className="text-gray-600">SES Cost (24h)</p>
               </div>
             </div>
             <div className="mt-2 text-sm text-gray-500">
               At $0.10 per 1,000 emails
+              {((stats.emailsSentLast24h * 0.10) / 1000) > 1 && (
+                <span className="block mt-1 text-red-600 font-semibold">⚠️ Daily cost exceeds $1</span>
+              )}
             </div>
           </div>
         </div>

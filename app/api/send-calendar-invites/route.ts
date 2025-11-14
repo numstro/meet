@@ -13,6 +13,7 @@ export const dynamic = 'force-dynamic'
 
 // Rate limiting constants for calendar invites
 const MAX_INVITES_PER_DAY = 100 // Maximum calendar invites per IP per day
+const MAX_INVITES_PER_HOUR = 20 // Maximum calendar invites per IP per hour (prevents bursts)
 const MAX_RECIPIENTS_PER_REQUEST = 50 // Maximum recipients per single invite request
 
 // Helper function to convert time bucket to actual time
@@ -47,22 +48,44 @@ export async function POST(request: NextRequest) {
     const realIp = request.headers.get('x-real-ip')
     const ipAddress = forwardedFor?.split(',')[0]?.trim() || realIp || '127.0.0.1'
     
-    // Rate limiting: Check if IP has exceeded daily invite limit
-    // We'll track this in a separate table or use the existing rate_limits table
+    // Rate limiting: Check if IP has exceeded daily and hourly invite limits
     const currentTime = new Date()
-    const windowStart = new Date(currentTime.getTime() - 24 * 60 * 60 * 1000) // 24 hours ago
+    const dayWindowStart = new Date(currentTime.getTime() - 24 * 60 * 60 * 1000) // 24 hours ago
+    const hourWindowStart = new Date(currentTime.getTime() - 60 * 60 * 1000) // 1 hour ago
     
-    const { data: recentInvites, error: inviteCountError } = await supabase
+    // Check daily limit
+    const { data: recentInvitesDay, error: inviteCountErrorDay } = await supabase
       .from('rate_limits')
       .select('id')
       .eq('ip_address', ipAddress)
-      .gte('created_at', windowStart.toISOString())
+      .not('creator_email', 'is', null) // Calendar invites have creator_email
+      .gte('created_at', dayWindowStart.toISOString())
     
-    if (!inviteCountError && recentInvites && recentInvites.length >= MAX_INVITES_PER_DAY) {
+    if (!inviteCountErrorDay && recentInvitesDay && recentInvitesDay.length >= MAX_INVITES_PER_DAY) {
       return NextResponse.json(
         { 
           error: `Rate limit exceeded. Maximum ${MAX_INVITES_PER_DAY} calendar invites per day. Please try again tomorrow.`,
-          rateLimitExceeded: true
+          rateLimitExceeded: true,
+          limitType: 'daily'
+        },
+        { status: 429 }
+      )
+    }
+    
+    // Check hourly limit (prevents burst attacks)
+    const { data: recentInvitesHour, error: inviteCountErrorHour } = await supabase
+      .from('rate_limits')
+      .select('id')
+      .eq('ip_address', ipAddress)
+      .not('creator_email', 'is', null) // Calendar invites have creator_email
+      .gte('created_at', hourWindowStart.toISOString())
+    
+    if (!inviteCountErrorHour && recentInvitesHour && recentInvitesHour.length >= MAX_INVITES_PER_HOUR) {
+      return NextResponse.json(
+        { 
+          error: `Rate limit exceeded. Maximum ${MAX_INVITES_PER_HOUR} calendar invites per hour. Please wait before sending more.`,
+          rateLimitExceeded: true,
+          limitType: 'hourly'
         },
         { status: 429 }
       )
@@ -584,6 +607,7 @@ END:VTIMEZONE`,
     const failCount = emailResults.filter(r => !r.success).length
     
     // Record rate limit usage (only if emails were successfully sent)
+    // Track exact recipient count for accurate monitoring
     if (successCount > 0) {
       try {
         await supabase
@@ -592,7 +616,8 @@ END:VTIMEZONE`,
             ip_address: ipAddress,
             creator_email: creatorEmail,
             creator_name: poll.creator_name,
-            created_at: new Date().toISOString()
+            created_at: new Date().toISOString(),
+            recipient_count: uniqueVoters.length // Track exact number of emails sent
           }])
       } catch (rateLimitError) {
         // Log but don't fail the request if rate limit recording fails

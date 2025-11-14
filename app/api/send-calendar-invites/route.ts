@@ -470,17 +470,21 @@ END:VTIMEZONE`,
         </div>
         
         <p style="color: #6b7280; font-size: 14px;">
-          A calendar invite has been attached to this email as <strong>invite.ics</strong>. You can also add it directly to your calendar using the button below.
+          A calendar invite has been attached to this email as <strong>invite.ics</strong>.
+        </p>
+        
+        <p style="color: #1f2937; font-size: 16px; font-weight: 500; margin: 25px 0 15px 0;">
+          If you use Google Calendar, click below to add this event:
         </p>
         
         <div style="margin: 30px 0;">
           <a href="${googleCalendarUrl}" 
              target="_blank"
-             style="background: #4285f4; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block; margin-right: 10px; font-weight: 500;">
+             style="background: #4285f4; color: white; padding: 14px 28px; text-decoration: none; border-radius: 8px; display: inline-block; margin-right: 12px; font-weight: 600; font-size: 16px; box-shadow: 0 2px 4px rgba(66, 133, 244, 0.3);">
             📅 Add to Google Calendar
           </a>
           <a href="${request.nextUrl.origin}/poll/${pollId}" 
-             style="background: #6b7280; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
+             style="background: #6b7280; color: white; padding: 14px 28px; text-decoration: none; border-radius: 8px; display: inline-block; font-weight: 500; font-size: 16px;">
             View Poll
           </a>
         </div>

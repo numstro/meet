@@ -4,10 +4,15 @@ import { SESClient, SendRawEmailCommand } from "@aws-sdk/client-ses";
 
 /**
  * SES client – make sure AWS_REGION is set in your environment.
+ * IMPORTANT: The region must match where your domain is verified in SES.
  */
-const ses = new SESClient({
-  region: process.env.AWS_REGION || process.env.SES_REGION || 'us-east-2',
-});
+function getSESClient() {
+  const region = process.env.AWS_REGION || process.env.SES_REGION || 'us-east-2';
+  console.log(`[SES] Using region: ${region}`);
+  return new SESClient({
+    region: region,
+  });
+}
 
 export interface CalendlyStyleInviteOptions {
   from: string;      // e.g., 'Meetup <noreply@numstro.com>'
@@ -32,6 +37,16 @@ export interface CalendlyStyleInviteOptions {
  */
 export async function sendInviteCalendlyStyle(opts: CalendlyStyleInviteOptions) {
   const { from, to, replyTo, subject } = opts;
+  
+  // Create SES client (will log the region being used)
+  const ses = getSESClient();
+  
+  // Extract email address from "Display Name <email@domain.com>" format if needed
+  // SES needs just the email address for verification, but we can keep display name in From header
+  const fromEmailMatch = from.match(/<(.+)>/);
+  const fromEmail = fromEmailMatch ? fromEmailMatch[1] : from;
+  
+  console.log(`[SES] Sending email from: ${fromEmail} to: ${to}`);
 
   // 1) Normalize ICS: CRLF line endings, no folded soft wraps
   let ics = opts.ics
@@ -112,12 +127,28 @@ export async function sendInviteCalendlyStyle(opts: CalendlyStyleInviteOptions) 
     ].join("\r\n");
 
   // 5) Send via SES RawEmail
-  await ses.send(
-    new SendRawEmailCommand({
-      RawMessage: {
-        Data: Buffer.from(raw, "utf8"),
-      },
-    })
-  );
+  // Note: SES extracts the From address from the MIME headers automatically
+  // The domain (numstro.com) must be verified in the same region as the SES client
+  try {
+    await ses.send(
+      new SendRawEmailCommand({
+        RawMessage: {
+          Data: Buffer.from(raw, "utf8"),
+        },
+      })
+    );
+    console.log(`[SES] Successfully sent email to ${to}`);
+  } catch (error: any) {
+    const region = process.env.AWS_REGION || process.env.SES_REGION || 'us-east-2';
+    console.error(`[SES] Failed to send email:`, {
+      error: error.message,
+      code: error.Code || error.name,
+      region: region,
+      from: fromEmail,
+      to: to,
+      note: 'Make sure the domain is verified in the same region as SES_REGION/AWS_REGION'
+    });
+    throw error;
+  }
 }
 

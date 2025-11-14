@@ -209,6 +209,31 @@ export async function POST(request: NextRequest) {
       })
     }
     const timeStr = `${formatTime(start)} - ${formatTime(end)}`
+    
+    // Generate Google Calendar link as fallback
+    // Format: YYYYMMDDTHHMMSSZ (UTC)
+    const formatGoogleCalendarDate = (date: Date): string => {
+      const year = date.getUTCFullYear()
+      const month = String(date.getUTCMonth() + 1).padStart(2, '0')
+      const day = String(date.getUTCDate()).padStart(2, '0')
+      const hours = String(date.getUTCHours()).padStart(2, '0')
+      const minutes = String(date.getUTCMinutes()).padStart(2, '0')
+      const seconds = String(date.getUTCSeconds()).padStart(2, '0')
+      return `${year}${month}${day}T${hours}${minutes}${seconds}Z`
+    }
+    
+    const startUTC = formatGoogleCalendarDate(start)
+    const endUTC = formatGoogleCalendarDate(end)
+    
+    // Build Google Calendar URL
+    const googleCalendarParams = new URLSearchParams({
+      action: 'TEMPLATE',
+      text: poll.title,
+      dates: `${startUTC}/${endUTC}`,
+      details: poll.description || '',
+      location: poll.location || ''
+    })
+    const googleCalendarUrl = `https://calendar.google.com/calendar/render?${googleCalendarParams.toString()}`
 
     // Create calendar event - match Google Calendar's exact format
     // Google uses TZID format with VTIMEZONE blocks
@@ -445,12 +470,17 @@ END:VTIMEZONE`,
         </div>
         
         <p style="color: #6b7280; font-size: 14px;">
-          A calendar invite has been attached to this email as <strong>invite.ics</strong>. Open it to add the event to your calendar.
+          A calendar invite has been attached to this email as <strong>invite.ics</strong>. You can also add it directly to your calendar using the button below.
         </p>
         
         <div style="margin: 30px 0;">
+          <a href="${googleCalendarUrl}" 
+             target="_blank"
+             style="background: #4285f4; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block; margin-right: 10px; font-weight: 500;">
+            📅 Add to Google Calendar
+          </a>
           <a href="${request.nextUrl.origin}/poll/${pollId}" 
-             style="background: #3b82f6; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
+             style="background: #6b7280; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
             View Poll
           </a>
         </div>
@@ -472,7 +502,7 @@ END:VTIMEZONE`,
       console.log(`[Calendar Invites] Sending email ${i + 1}/${uniqueVoters.length} to ${voter.participant_email}`)
       try {
         const personalizedHtml = htmlContent.replace('Hi there,', `Hi ${voter.participant_name || 'there'},`)
-        const personalizedText = `${voter.participant_name || 'Hi there'},\n\n${poll.creator_name} has scheduled the meeting based on your availability:\n\n${poll.title}${poll.description ? `\n${poll.description}` : ''}\n\n📅 Date: ${dateStr}\n🕐 Time: ${timeStr}${poll.location ? `\n📍 Location: ${poll.location}` : ''}\n\nA calendar invite has been attached to this email as invite.ics. Open it to add the event to your calendar.\n\nView Poll: ${request.nextUrl.origin}/poll/${pollId}\n\nThis invite was sent because you voted "yes" or "maybe" for this time slot.`
+        const personalizedText = `${voter.participant_name || 'Hi there'},\n\n${poll.creator_name} has scheduled the meeting based on your availability:\n\n${poll.title}${poll.description ? `\n${poll.description}` : ''}\n\n📅 Date: ${dateStr}\n🕐 Time: ${timeStr}${poll.location ? `\n📍 Location: ${poll.location}` : ''}\n\nA calendar invite has been attached to this email as invite.ics. You can also add it directly to your calendar:\n\nAdd to Google Calendar: ${googleCalendarUrl}\n\nView Poll: ${request.nextUrl.origin}/poll/${pollId}\n\nThis invite was sent because you voted "yes" or "maybe" for this time slot.`
         const subject = `📅 Calendar Invite: ${poll.title}`
         
         await sendInviteCalendlyStyle({

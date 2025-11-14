@@ -35,15 +35,18 @@ export interface CalendlyStyleInviteOptions {
 }
 
 /**
- * Send a calendar invite that mimics Calendly's MIME structure as closely as possible.
- *
- * Structure:
+ * Send a calendar invite matching Google Calendar's exact MIME format.
+ * 
+ * Key requirements for Gmail parsing:
+ * - Single text/calendar part as attachment (not inline + attachment)
+ * - Content-Transfer-Encoding: 7bit (no quoted-printable, no base64)
+ * - Content-Type: text/calendar; charset="UTF-8"; method=REQUEST
+ * - Pure ASCII ICS content with CRLF line endings only
+ * 
+ * Structure (matching Google Calendar):
  * multipart/mixed
- * ├─ multipart/alternative
- * │   ├─ text/plain
- * │   ├─ text/html
- * │   └─ text/calendar (inline, METHOD=REQUEST, base64)
- * └─ text/calendar (attachment, invite.ics, base64)
+ * ├─ text/html (7bit)
+ * └─ text/calendar (attachment, 7bit, invite.ics)
  */
 export async function sendInviteCalendlyStyle(opts: CalendlyStyleInviteOptions) {
   const { from, to, replyTo, subject } = opts;
@@ -52,29 +55,33 @@ export async function sendInviteCalendlyStyle(opts: CalendlyStyleInviteOptions) 
   const ses = getSESClient();
   
   // Extract email address from "Display Name <email@domain.com>" format if needed
-  // SES needs just the email address for verification, but we can keep display name in From header
   const fromEmailMatch = from.match(/<(.+)>/);
   const fromEmail = fromEmailMatch ? fromEmailMatch[1] : from;
   
   console.log(`[SES] Sending email from: ${fromEmail} to: ${to}`);
 
-  // 1) Normalize ICS: CRLF line endings, no folded soft wraps
+  // 1) Normalize ICS: CRLF line endings, no folded soft wraps, ensure pure ASCII
   let ics = opts.ics
     .replace(/\r?\n/g, "\r\n") // enforce CRLF
     .replace(/\r\n /g, "");    // unfold any "CRLF + space" soft wraps
+  
+  // Validate ICS is pure ASCII (7bit encoding requirement)
+  // If there are non-ASCII characters, we'll need to handle them differently
+  // For now, assume ical-generator produces ASCII-safe output
+  const icsBytes = Buffer.from(ics, 'utf8');
+  const hasNonASCII = Array.from(icsBytes).some(byte => byte > 127);
+  if (hasNonASCII) {
+    console.warn(`[SES] ICS contains non-ASCII characters. Gmail may require UTF-8 encoding.`);
+  }
 
-  const icsBase64 = Buffer.from(ics, "utf8").toString("base64");
-
-  // 2) Prepare plain text + HTML bodies
-  const textBody = opts.text || "A calendar invite is attached to this email.";
+  // 2) Prepare HTML body (plain text optional for now)
   const htmlBody = opts.html || `<p>A calendar invite has been attached to this email as <strong>invite.ics</strong>.</p>`;
 
-  // 3) Boundaries – must be unique enough per message
-  const mixedBoundary = "mixed_" + Math.random().toString(36).slice(2);
-  const altBoundary = "alt_" + Math.random().toString(36).slice(2);
+  // 3) Boundary – must be unique per message
+  const mixedBoundary = "boundary_" + Math.random().toString(36).slice(2, 15);
 
-  // 4) Build raw MIME string in Calendly-style structure
-  // Note: All header lines and boundaries use CRLF (\r\n).
+  // 4) Build raw MIME string matching Google Calendar's exact format
+  // All lines use CRLF (\r\n) as per MIME spec
   const raw =
     [
       `MIME-Version: 1.0`,
@@ -85,49 +92,21 @@ export async function sendInviteCalendlyStyle(opts: CalendlyStyleInviteOptions) 
       `Content-Type: multipart/mixed; boundary="${mixedBoundary}"`,
       ``,
 
-      // Start mixed
-      `--${mixedBoundary}`,
-      `Content-Type: multipart/alternative; boundary="${altBoundary}"`,
-      ``,
-
-      // Plain text part
-      `--${altBoundary}`,
-      `Content-Type: text/plain; charset="UTF-8"`,
-      `Content-Transfer-Encoding: 7bit`,
-      ``,
-      textBody,
-      ``,
-
       // HTML part
-      `--${altBoundary}`,
+      `--${mixedBoundary}`,
       `Content-Type: text/html; charset="UTF-8"`,
       `Content-Transfer-Encoding: 7bit`,
       ``,
       htmlBody,
       ``,
 
-      // INLINE calendar part (Gmail-critical)
-      `--${altBoundary}`,
-      `Content-Type: text/calendar; method=REQUEST; charset="UTF-8"`,
-      `Content-Transfer-Encoding: base64`,
-      `Content-Disposition: inline`,
-      `Content-Class: urn:content-classes:calendarmessage`,
-      ``,
-      icsBase64,
-      ``,
-
-      // End alt
-      `--${altBoundary}--`,
-      ``,
-
-      // ATTACHMENT calendar part (downloadable invite.ics)
+      // Calendar attachment (single part, 7bit encoding - matches Google format)
       `--${mixedBoundary}`,
-      `Content-Type: text/calendar; name="invite.ics"; method=REQUEST; charset="UTF-8"`,
-      `Content-Transfer-Encoding: base64`,
+      `Content-Type: text/calendar; charset="UTF-8"; method=REQUEST; name="invite.ics"`,
       `Content-Disposition: attachment; filename="invite.ics"`,
-      `Content-Class: urn:content-classes:calendarmessage`,
+      `Content-Transfer-Encoding: 7bit`,
       ``,
-      icsBase64,
+      ics,  // Raw ICS content, not base64 encoded
       ``,
 
       // End mixed

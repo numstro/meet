@@ -22,6 +22,10 @@ interface DashboardStats {
   responsesLast24h: number
   uniqueIpsLast24h: number
   rateLimitHits: number
+  totalInvitesSent: number
+  invitesLast24h: number
+  emailsSentLast24h: number
+  invitesRateLimitHits: number
 }
 
 interface DailyStats {
@@ -29,6 +33,8 @@ interface DailyStats {
   polls_created: number
   responses_submitted: number
   unique_ips: number
+  invites_sent: number
+  emails_sent: number
 }
 
 interface EmailIPCorrelation {
@@ -121,6 +127,31 @@ export default function MonitoringDashboard() {
         .select('ip_address, creator_email, creator_name, created_at')
         .gte('created_at', yesterday.toISOString())
 
+      // Get calendar invite statistics (from rate_limits table - calendar invites are tracked there)
+      // We can identify calendar invites by checking if they have creator_email (poll invites) vs poll creation
+      // For now, we'll count all rate_limits entries as potential invites, but we should add a type field later
+      const { data: allInvites } = await supabase
+        .from('rate_limits')
+        .select('created_at, ip_address')
+        .not('creator_email', 'is', null) // Calendar invites have creator_email
+
+      const { data: invitesLast24h } = await supabase
+        .from('rate_limits')
+        .select('created_at, ip_address')
+        .not('creator_email', 'is', null)
+        .gte('created_at', yesterday.toISOString())
+
+      // Count calendar invite rate limit hits (IPs that hit 100 invites/day limit)
+      const inviteIPCounts: Record<string, number> = {}
+      invitesLast24h?.forEach((invite: any) => {
+        inviteIPCounts[invite.ip_address] = (inviteIPCounts[invite.ip_address] || 0) + 1
+      })
+      const invitesRateLimitHits = Object.values(inviteIPCounts).filter(count => count >= 100).length
+
+      // Estimate emails sent (we don't track exact count, but we can estimate based on invites)
+      // Each invite typically sends to multiple recipients, but we don't have exact count
+      // For now, we'll show invite count and note that each invite may send multiple emails
+
       // Get all rate limits for email-IP correlation analysis - SIMPLIFIED
       const { data: allRateLimits } = await supabase
         .from('rate_limits')
@@ -158,7 +189,11 @@ export default function MonitoringDashboard() {
         totalResponses: allResponses?.length || 0,
         responsesLast24h: responsesLast24h?.length || 0,
         uniqueIpsLast24h: uniqueIps,
-        rateLimitHits
+        rateLimitHits,
+        totalInvitesSent: allInvites?.length || 0,
+        invitesLast24h: invitesLast24h?.length || 0,
+        emailsSentLast24h: invitesLast24h?.length || 0, // Estimate: 1 email per invite (actual is higher)
+        invitesRateLimitHits
       }
 
       // SIMPLIFIED email-to-IP correlations - just show the raw data
@@ -222,12 +257,20 @@ export default function MonitoringDashboard() {
             .from('rate_limits')
             .select('ip_address')
             .gte('created_at', dayStart)
+            .lte('created_at', dayEnd),
+          supabase
+            .from('rate_limits')
+            .select('created_at')
+            .not('creator_email', 'is', null)
+            .gte('created_at', dayStart)
             .lte('created_at', dayEnd)
-        ]).then(([polls, responses, rateLimits]) => ({
+        ]).then(([polls, responses, rateLimits, invites]) => ({
           date: format(date, 'yyyy-MM-dd'),
           polls_created: polls.data?.length || 0,
           responses_submitted: responses.data?.length || 0,
-          unique_ips: new Set(rateLimits.data?.map((rl: RateLimit) => rl.ip_address) || []).size
+          unique_ips: new Set(rateLimits.data?.map((rl: RateLimit) => rl.ip_address) || []).size,
+          invites_sent: invites.data?.length || 0,
+          emails_sent: invites.data?.length || 0 // Estimate
         }))
       })
 
@@ -423,6 +466,71 @@ export default function MonitoringDashboard() {
         </div>
       )}
 
+      {/* Calendar Invite Statistics */}
+      {stats && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <div className="bg-white rounded-lg shadow p-6">
+            <div className="flex items-center">
+              <div className="p-3 bg-orange-100 rounded-full">
+                <span className="text-2xl">📧</span>
+              </div>
+              <div className="ml-4">
+                <h3 className="text-lg font-semibold text-gray-900">{stats.totalInvitesSent}</h3>
+                <p className="text-gray-600">Total Invites Sent</p>
+              </div>
+            </div>
+            <div className="mt-2 text-sm text-gray-500">
+              +{stats.invitesLast24h} in last 24h
+            </div>
+          </div>
+
+          <div className="bg-white rounded-lg shadow p-6">
+            <div className="flex items-center">
+              <div className="p-3 bg-indigo-100 rounded-full">
+                <span className="text-2xl">✉️</span>
+              </div>
+              <div className="ml-4">
+                <h3 className="text-lg font-semibold text-gray-900">~{stats.emailsSentLast24h}</h3>
+                <p className="text-gray-600">Emails Sent (24h)</p>
+              </div>
+            </div>
+            <div className="mt-2 text-sm text-gray-500">
+              Estimated (actual may be higher)
+            </div>
+          </div>
+
+          <div className="bg-white rounded-lg shadow p-6">
+            <div className="flex items-center">
+              <div className={`p-3 rounded-full ${stats.invitesRateLimitHits > 0 ? 'bg-red-100' : 'bg-gray-100'}`}>
+                <span className="text-2xl">{stats.invitesRateLimitHits > 0 ? '⚠️' : '✅'}</span>
+              </div>
+              <div className="ml-4">
+                <h3 className="text-lg font-semibold text-gray-900">{stats.invitesRateLimitHits}</h3>
+                <p className="text-gray-600">Invite Rate Limit Hits</p>
+              </div>
+            </div>
+            <div className="mt-2 text-sm text-gray-500">
+              IPs hitting 100+ invites/day
+            </div>
+          </div>
+
+          <div className="bg-white rounded-lg shadow p-6">
+            <div className="flex items-center">
+              <div className="p-3 bg-teal-100 rounded-full">
+                <span className="text-2xl">💰</span>
+              </div>
+              <div className="ml-4">
+                <h3 className="text-lg font-semibold text-gray-900">${((stats.emailsSentLast24h * 0.10) / 1000).toFixed(2)}</h3>
+                <p className="text-gray-600">SES Cost (24h est.)</p>
+              </div>
+            </div>
+            <div className="mt-2 text-sm text-gray-500">
+              At $0.10 per 1,000 emails
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Daily Statistics Table */}
       <div className="bg-white rounded-lg shadow">
         <div className="px-6 py-4 border-b border-gray-200">
@@ -450,6 +558,12 @@ export default function MonitoringDashboard() {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Unique IPs
                   </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Invites Sent
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Emails Sent
+                  </th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
@@ -466,6 +580,12 @@ export default function MonitoringDashboard() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {day.unique_ips}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {day.invites_sent}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      ~{day.emails_sent}
                     </td>
                   </tr>
                 ))}

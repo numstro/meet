@@ -526,14 +526,28 @@ We've tried many approaches and nothing has worked. We need a fresh perspective 
 
 ---
 
+## Update: Root Cause Identified
+
+**Root Cause Confirmed**: Gmail's iCalendar parser cannot handle quoted-printable encoding in a text/calendar MIME part.
+
+- SMTP2GO and Resend both rewrite MIME encoding, converting base64 to quoted-printable
+- This breaks Gmail's parser, even though the ICS file itself is valid
+- Solution: Use AWS SES which preserves MIME encoding exactly
+
+**Current Status**: Migrated to AWS SES via Nodemailer SMTP. Testing in progress.
+
+**See**: `CALENDAR_INVITE_COMPLETE_HISTORY.md` for full technical synopsis and implementation details.
+
+---
+
 ## Environment Details
 
 - **Node.js**: v22.18.0
 - **Next.js**: 15.4.5
 - **ical-generator**: ^10.0.0
-- **Resend**: ^2.1.0
+- **Email Service**: AWS SES (via Nodemailer SMTP)
 - **Deployment**: Vercel (serverless functions)
-- **Email domain**: numstro.com (verified with Resend)
+- **Email domain**: numstro.com (verified with AWS SES)
 
 ---
 
@@ -541,13 +555,13 @@ We've tried many approaches and nothing has worked. We need a fresh perspective 
 
 The user has been very patient through many iterations. We've tried:
 - Different time formats (UTC vs TZID)
-- Different email services (Resend vs Nodemailer)
+- Different email services (Resend vs Nodemailer/SMTP2GO → AWS SES)
 - Different ICS generation approaches
 - Matching Google Calendar's format exactly
 
-Nothing has worked. The ICS file appears correct, but Gmail still cannot parse it.
+**Root cause identified**: Email service MIME encoding rewrites (quoted-printable) break Gmail's parser.
 
-**Critical insight from user**: "Before, Google Calendar could at least infer a date and time - now it's no longer possible. What has changed?"
+**Solution implemented**: AWS SES preserves base64 encoding, allowing Gmail to parse correctly.
 
-This suggests that in our attempts to "fix" things, we may have broken something that was working before.
+**For complete history**: See `CALENDAR_INVITE_COMPLETE_HISTORY.md`
 

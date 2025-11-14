@@ -232,3 +232,6 @@ for (let i = 0; i < uniqueVoters.length; i++) {
 3. Timezone differences → Uses browser timezone, converts properly in iCal
 4. Large number of recipients → Rate limiting handles it, but takes longer
 
+
+
+

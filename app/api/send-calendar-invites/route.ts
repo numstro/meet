@@ -418,31 +418,32 @@ END:VTIMEZONE`,
       )
     }
 
-    // Initialize Nodemailer with SMTP2GO - required for Gmail inline Accept/Decline cards
-    // Resend can't set Content-Type: text/calendar; method=REQUEST; charset=UTF-8
+    // Initialize Nodemailer with AWS SES - required to preserve base64 encoding
+    // SMTP2GO rewrites MIME encoding (base64 -> quoted-printable), breaking Gmail's parser
+    // AWS SES preserves MIME exactly as sent, ensuring Gmail can parse calendar invites
     const nodemailer = (await import('nodemailer')).default
     
-    // SMTP2GO configuration
-    const smtpHost = process.env.SMTP_HOST || 'mail.smtp2go.com'
-    const smtpPort = Number(process.env.SMTP_PORT || 2525) // 2525 is SMTP2GO's TLS port
-    const smtpSecure = process.env.SMTP_SECURE === 'true' || smtpPort === 465
-    const smtpUser = process.env.SMTP_USER
-    const smtpPass = process.env.SMTP_PASS
+    // AWS SES SMTP configuration
+    const sesHost = process.env.SES_SMTP_HOST || process.env.SMTP_HOST
+    const sesPort = Number(process.env.SES_SMTP_PORT || process.env.SMTP_PORT || 587)
+    const sesSecure = process.env.SES_SMTP_SECURE === 'true' || process.env.SMTP_SECURE === 'true' || sesPort === 465
+    const sesUser = process.env.SES_SMTP_USER || process.env.SMTP_USER
+    const sesPass = process.env.SES_SMTP_PASS || process.env.SMTP_PASS
 
-    if (!smtpUser || !smtpPass) {
+    if (!sesUser || !sesPass || !sesHost) {
       return NextResponse.json(
-        { error: 'Email service not configured. Please set SMTP_USER and SMTP_PASS environment variables.' },
+        { error: 'Email service not configured. Please set SES_SMTP_HOST, SES_SMTP_USER, and SES_SMTP_PASS environment variables. See AWS_SES_SETUP.md for instructions.' },
         { status: 500 }
       )
     }
 
     const transporter = nodemailer.createTransport({
-      host: smtpHost,
-      port: smtpPort,
-      secure: smtpSecure, // true for 465, false for other ports
+      host: sesHost,
+      port: sesPort,
+      secure: sesSecure, // true for 465, false for 587
       auth: {
-        user: smtpUser,
-        pass: smtpPass
+        user: sesUser,
+        pass: sesPass
       }
     })
 
@@ -487,31 +488,35 @@ END:VTIMEZONE`,
     // The critical difference: we can set Content-Type: text/calendar; method=REQUEST; charset=UTF-8
     console.log(`[Calendar Invites] Preparing to send ${uniqueVoters.length} email(s) to:`, uniqueVoters.map(v => v.participant_email))
     
-    // Ensure ICS content is CRLF-normalized and ready for Buffer
+    // Ensure ICS content is CRLF-normalized and ready for raw MIME
     // Final ICS string with all fixes applied
     const finalIcs = icsContent.replace(/\r?\n/g, '\r\n').replace(/\r\n /g, '')
-    const icsBuffer = Buffer.from(finalIcs, 'utf8')
+    const icsBase64 = Buffer.from(finalIcs, 'utf8').toString('base64')
     
     for (let i = 0; i < uniqueVoters.length; i++) {
       const voter = uniqueVoters[i]
       console.log(`[Calendar Invites] Sending email ${i + 1}/${uniqueVoters.length} to ${voter.participant_email}`)
       try {
+        // Use alternatives with explicit base64 encoding
+        // SES preserves MIME encoding, unlike SMTP2GO which rewrites it
+        const personalizedHtml = htmlContent.replace('Hi there,', `Hi ${voter.participant_name || 'there'},`)
+        const subject = `📅 Calendar Invite: ${poll.title}`
+        
         await transporter.sendMail({
           from: 'Meetup <noreply@numstro.com>',
           to: voter.participant_email,
           replyTo: poll.creator_email,
-          subject: `📅 Calendar Invite: ${poll.title}`,
-          html: htmlContent.replace('Hi there,', `Hi ${voter.participant_name || 'there'},`),
-          // CRITICAL: Use icalEvent helper with Buffer to ensure base64 encoding (not quoted-printable)
-          // Gmail's parser fails on QP encoding - icalEvent with Buffer ensures proper base64
-          // Send only ONE calendar copy (icalEvent creates inline part) - no duplicate attachment
-          icalEvent: {
-            method: 'REQUEST',
-            filename: 'invite.ics',
-            content: icsBuffer // Buffer => base64 inline part (not QP)
-          }
-          // Removed duplicate attachment - icalEvent already provides the calendar part
-          // Users can still download from Gmail's inline calendar card
+          subject: subject,
+          html: personalizedHtml,
+          // Use alternatives with explicit base64 encoding
+          // SES should preserve this, unlike SMTP2GO which rewrites to quoted-printable
+          alternatives: [
+            {
+              contentType: 'text/calendar; method=REQUEST; charset=UTF-8',
+              content: Buffer.from(finalIcs, 'utf8'),
+              encoding: 'base64' // Explicitly set base64
+            }
+          ]
         })
         
         console.log(`[Calendar Invites] Successfully sent email to ${voter.participant_email}`)

@@ -7,3 +7,5 @@ ADD COLUMN IF NOT EXISTS comment TEXT;
 -- Add a comment to document the column
 COMMENT ON COLUMN poll_responses.comment IS 'Optional comment from participant about their vote for this time slot';
 
+
+

@@ -99,3 +99,5 @@ console.log('Has VTIMEZONE:', icsContent.includes('BEGIN:VTIMEZONE'))
 console.log('\n=== FIRST 500 CHARS ===')
 console.log(icsContent.substring(0, 500))
 
+
+

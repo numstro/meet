@@ -7,7 +7,7 @@ import ical, {
   ICalEventStatus,
   ICalEventBusyStatus
 } from 'ical-generator'
-import { SESClient, SendRawEmailCommand } from '@aws-sdk/client-ses'
+import { sendInviteCalendlyStyle } from '@/lib/sendInviteCalendlyStyle'
 
 export const dynamic = 'force-dynamic'
 
@@ -419,21 +419,12 @@ END:VTIMEZONE`,
       )
     }
 
-    // Use AWS SDK SendRawEmailCommand for full MIME control
-    // Nodemailer still encodes calendar part as quoted-printable, breaking Gmail
-    // Raw MIME ensures calendar part is base64 encoded as Gmail requires
-    const awsRegion = process.env.SES_REGION || process.env.AWS_REGION || 'us-east-2'
-    
-    if (!awsRegion) {
-      return NextResponse.json(
-        { error: 'Email service not configured. Please set SES_REGION or AWS_REGION environment variable. See AWS_SES_SETUP.md for instructions.' },
-        { status: 500 }
-      )
-    }
-
-    const sesClient = new SESClient({ region: awsRegion })
+    // Use Calendly-style MIME structure for Gmail compatibility
+    // This matches Calendly's exact MIME structure that Gmail recognizes
 
     const emailResults = []
+    
+    // Prepare email content
     const htmlContent = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <h2 style="color: #1f2937;">📅 Calendar Invite</h2>
@@ -454,7 +445,7 @@ END:VTIMEZONE`,
         </div>
         
         <p style="color: #6b7280; font-size: 14px;">
-          A calendar invite has been attached to this email. Please add it to your calendar.
+          A calendar invite has been attached to this email as <strong>invite.ics</strong>. Open it to add the event to your calendar.
         </p>
         
         <div style="margin: 30px 0;">
@@ -469,51 +460,30 @@ END:VTIMEZONE`,
         </p>
       </div>
     `
-
-    // Send emails using AWS SDK SendRawEmailCommand for full MIME control
-    // This ensures calendar part is base64 encoded (not quoted-printable) as Gmail requires
-    console.log(`[Calendar Invites] Preparing to send ${uniqueVoters.length} email(s) to:`, uniqueVoters.map(v => v.participant_email))
     
     // Normalize ICS content: CRLF line endings, unfold soft line breaks
     const finalIcs = icsContent.replace(/\r?\n/g, '\r\n').replace(/\r\n /g, '')
-    const icsBase64 = Buffer.from(finalIcs, 'utf8').toString('base64')
+    
+    // Send emails using Calendly-style MIME structure for Gmail compatibility
+    console.log(`[Calendar Invites] Preparing to send ${uniqueVoters.length} email(s) to:`, uniqueVoters.map(v => v.participant_email))
     
     for (let i = 0; i < uniqueVoters.length; i++) {
       const voter = uniqueVoters[i]
       console.log(`[Calendar Invites] Sending email ${i + 1}/${uniqueVoters.length} to ${voter.participant_email}`)
       try {
         const personalizedHtml = htmlContent.replace('Hi there,', `Hi ${voter.participant_name || 'there'},`)
+        const personalizedText = `${voter.participant_name || 'Hi there'},\n\n${poll.creator_name} has scheduled the meeting based on your availability:\n\n${poll.title}${poll.description ? `\n${poll.description}` : ''}\n\n📅 Date: ${dateStr}\n🕐 Time: ${timeStr}${poll.location ? `\n📍 Location: ${poll.location}` : ''}\n\nA calendar invite has been attached to this email as invite.ics. Open it to add the event to your calendar.\n\nView Poll: ${request.nextUrl.origin}/poll/${pollId}\n\nThis invite was sent because you voted "yes" or "maybe" for this time slot.`
         const subject = `📅 Calendar Invite: ${poll.title}`
         
-        // Generate unique boundary for multipart message
-        const boundary = 'b-' + Math.random().toString(36).slice(2)
-        
-        // Construct raw MIME message with CRLF line endings (MIME spec requirement)
-        // HTML part can be quoted-printable, but calendar MUST be base64
-        const rawMime = `MIME-Version: 1.0\r
-From: Meetup <noreply@numstro.com>\r
-To: ${voter.participant_email}\r
-Reply-To: ${poll.creator_email}\r
-Subject: ${subject}\r
-Content-Type: multipart/alternative; boundary="${boundary}"\r
-\r
---${boundary}\r
-Content-Type: text/html; charset=UTF-8\r
-Content-Transfer-Encoding: quoted-printable\r
-\r
-${personalizedHtml}\r
-\r
---${boundary}\r
-Content-Type: text/calendar; method=REQUEST; charset=UTF-8\r
-Content-Transfer-Encoding: base64\r
-Content-Disposition: attachment; filename="invite.ics"\r
-\r
-${icsBase64}\r
---${boundary}--`
-        
-        await sesClient.send(new SendRawEmailCommand({
-          RawMessage: { Data: Buffer.from(rawMime, 'utf8') }
-        }))
+        await sendInviteCalendlyStyle({
+          from: 'Meetup <noreply@numstro.com>',
+          to: voter.participant_email,
+          replyTo: poll.creator_email,
+          subject: subject,
+          text: personalizedText,
+          html: personalizedHtml,
+          ics: finalIcs
+        })
         
         console.log(`[Calendar Invites] Successfully sent email to ${voter.participant_email}`)
         emailResults.push({ email: voter.participant_email, success: true })

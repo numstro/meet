@@ -3,12 +3,22 @@
 import { SESClient, SendRawEmailCommand } from "@aws-sdk/client-ses";
 
 /**
- * SES client – make sure AWS_REGION is set in your environment.
+ * SES client – make sure SES_REGION is set in your environment.
  * IMPORTANT: The region must match where your domain is verified in SES.
+ * Domain numstro.com is verified in us-east-2.
  */
 function getSESClient() {
-  const region = process.env.AWS_REGION || process.env.SES_REGION || 'us-east-2';
-  console.log(`[SES] Using region: ${region}`);
+  // Prioritize SES_REGION over AWS_REGION (since we explicitly set SES_REGION)
+  // Default to us-east-2 where the domain is verified
+  const region = process.env.SES_REGION || process.env.AWS_REGION || 'us-east-2';
+  
+  // Debug logging to see what env vars are actually available
+  console.log(`[SES] Environment check:`, {
+    SES_REGION: process.env.SES_REGION || '(not set)',
+    AWS_REGION: process.env.AWS_REGION || '(not set)',
+    selectedRegion: region
+  });
+  
   return new SESClient({
     region: region,
   });

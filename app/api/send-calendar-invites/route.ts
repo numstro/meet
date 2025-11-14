@@ -11,6 +11,10 @@ import { sendInviteCalendlyStyle } from '@/lib/sendInviteCalendlyStyle'
 
 export const dynamic = 'force-dynamic'
 
+// Rate limiting constants for calendar invites
+const MAX_INVITES_PER_DAY = 100 // Maximum calendar invites per IP per day
+const MAX_RECIPIENTS_PER_REQUEST = 50 // Maximum recipients per single invite request
+
 // Helper function to convert time bucket to actual time
 function getTimeFromBucket(date: string, timeBucket: string): { start: Date; end: Date } {
   const eventDate = new Date(date)
@@ -38,6 +42,32 @@ function getTimeFromBucket(date: string, timeBucket: string): { start: Date; end
 
 export async function POST(request: NextRequest) {
   try {
+    // Get IP address for rate limiting
+    const forwardedFor = request.headers.get('x-forwarded-for')
+    const realIp = request.headers.get('x-real-ip')
+    const ipAddress = forwardedFor?.split(',')[0]?.trim() || realIp || '127.0.0.1'
+    
+    // Rate limiting: Check if IP has exceeded daily invite limit
+    // We'll track this in a separate table or use the existing rate_limits table
+    const currentTime = new Date()
+    const windowStart = new Date(currentTime.getTime() - 24 * 60 * 60 * 1000) // 24 hours ago
+    
+    const { data: recentInvites, error: inviteCountError } = await supabase
+      .from('rate_limits')
+      .select('id')
+      .eq('ip_address', ipAddress)
+      .gte('created_at', windowStart.toISOString())
+    
+    if (!inviteCountError && recentInvites && recentInvites.length >= MAX_INVITES_PER_DAY) {
+      return NextResponse.json(
+        { 
+          error: `Rate limit exceeded. Maximum ${MAX_INVITES_PER_DAY} calendar invites per day. Please try again tomorrow.`,
+          rateLimitExceeded: true
+        },
+        { status: 429 }
+      )
+    }
+    
     const { pollId, optionId, creatorEmail, startTime, endTime, timezone } = await request.json()
     
     if (!pollId || !optionId || !creatorEmail || !startTime || !endTime) {
@@ -113,6 +143,18 @@ export async function POST(request: NextRequest) {
     const uniqueVoters = Array.from(
       new Map(typedVotes.map(v => [v.participant_email, v])).values()
     )
+    
+    // Rate limiting: Limit number of recipients per request to prevent abuse
+    if (uniqueVoters.length > MAX_RECIPIENTS_PER_REQUEST) {
+      return NextResponse.json(
+        { 
+          error: `Too many recipients. Maximum ${MAX_RECIPIENTS_PER_REQUEST} recipients per calendar invite. Please split into multiple invites.`,
+          recipientCount: uniqueVoters.length,
+          maxAllowed: MAX_RECIPIENTS_PER_REQUEST
+        },
+        { status: 400 }
+      )
+    }
     
     console.log(`[Calendar Invites] Found ${votes.length} vote(s) from ${uniqueVoters.length} unique voter(s):`, uniqueVoters.map(v => `${v.participant_name || v.participant_email} (${v.participant_email})`))
 
@@ -540,6 +582,23 @@ END:VTIMEZONE`,
 
     const successCount = emailResults.filter(r => r.success).length
     const failCount = emailResults.filter(r => !r.success).length
+    
+    // Record rate limit usage (only if emails were successfully sent)
+    if (successCount > 0) {
+      try {
+        await supabase
+          .from('rate_limits')
+          .insert([{
+            ip_address: ipAddress,
+            creator_email: creatorEmail,
+            creator_name: poll.creator_name,
+            created_at: new Date().toISOString()
+          }])
+      } catch (rateLimitError) {
+        // Log but don't fail the request if rate limit recording fails
+        console.error('[Calendar Invites] Failed to record rate limit:', rateLimitError)
+      }
+    }
 
     return NextResponse.json({
       success: true,

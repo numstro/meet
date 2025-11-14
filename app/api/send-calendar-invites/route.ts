@@ -7,6 +7,7 @@ import ical, {
   ICalEventStatus,
   ICalEventBusyStatus
 } from 'ical-generator'
+import { SESClient, SendRawEmailCommand } from '@aws-sdk/client-ses'
 
 export const dynamic = 'force-dynamic'
 
@@ -418,34 +419,19 @@ END:VTIMEZONE`,
       )
     }
 
-    // Initialize Nodemailer with AWS SES - required to preserve base64 encoding
-    // SMTP2GO rewrites MIME encoding (base64 -> quoted-printable), breaking Gmail's parser
-    // AWS SES preserves MIME exactly as sent, ensuring Gmail can parse calendar invites
-    const nodemailer = (await import('nodemailer')).default
+    // Use AWS SDK SendRawEmailCommand for full MIME control
+    // Nodemailer still encodes calendar part as quoted-printable, breaking Gmail
+    // Raw MIME ensures calendar part is base64 encoded as Gmail requires
+    const awsRegion = process.env.SES_REGION || process.env.AWS_REGION || 'us-east-2'
     
-    // AWS SES SMTP configuration
-    const sesHost = process.env.SES_SMTP_HOST || process.env.SMTP_HOST
-    const sesPort = Number(process.env.SES_SMTP_PORT || process.env.SMTP_PORT || 587)
-    const sesSecure = process.env.SES_SMTP_SECURE === 'true' || process.env.SMTP_SECURE === 'true' || sesPort === 465
-    const sesUser = process.env.SES_SMTP_USER || process.env.SMTP_USER
-    const sesPass = process.env.SES_SMTP_PASS || process.env.SMTP_PASS
-
-    if (!sesUser || !sesPass || !sesHost) {
+    if (!awsRegion) {
       return NextResponse.json(
-        { error: 'Email service not configured. Please set SES_SMTP_HOST, SES_SMTP_USER, and SES_SMTP_PASS environment variables. See AWS_SES_SETUP.md for instructions.' },
+        { error: 'Email service not configured. Please set SES_REGION or AWS_REGION environment variable. See AWS_SES_SETUP.md for instructions.' },
         { status: 500 }
       )
     }
 
-    const transporter = nodemailer.createTransport({
-      host: sesHost,
-      port: sesPort,
-      secure: sesSecure, // true for 465, false for 587
-      auth: {
-        user: sesUser,
-        pass: sesPass
-      }
-    })
+    const sesClient = new SESClient({ region: awsRegion })
 
     const emailResults = []
     const htmlContent = `
@@ -484,12 +470,11 @@ END:VTIMEZONE`,
       </div>
     `
 
-    // Send emails with Nodemailer - required for Gmail inline Accept/Decline cards
-    // The critical difference: we can set Content-Type: text/calendar; method=REQUEST; charset=UTF-8
+    // Send emails using AWS SDK SendRawEmailCommand for full MIME control
+    // This ensures calendar part is base64 encoded (not quoted-printable) as Gmail requires
     console.log(`[Calendar Invites] Preparing to send ${uniqueVoters.length} email(s) to:`, uniqueVoters.map(v => v.participant_email))
     
-    // Ensure ICS content is CRLF-normalized and ready for raw MIME
-    // Final ICS string with all fixes applied
+    // Normalize ICS content: CRLF line endings, unfold soft line breaks
     const finalIcs = icsContent.replace(/\r?\n/g, '\r\n').replace(/\r\n /g, '')
     const icsBase64 = Buffer.from(finalIcs, 'utf8').toString('base64')
     
@@ -497,27 +482,38 @@ END:VTIMEZONE`,
       const voter = uniqueVoters[i]
       console.log(`[Calendar Invites] Sending email ${i + 1}/${uniqueVoters.length} to ${voter.participant_email}`)
       try {
-        // Use alternatives with explicit base64 encoding
-        // SES preserves MIME encoding, unlike SMTP2GO which rewrites it
         const personalizedHtml = htmlContent.replace('Hi there,', `Hi ${voter.participant_name || 'there'},`)
         const subject = `📅 Calendar Invite: ${poll.title}`
         
-        await transporter.sendMail({
-          from: 'Meetup <noreply@numstro.com>',
-          to: voter.participant_email,
-          replyTo: poll.creator_email,
-          subject: subject,
-          html: personalizedHtml,
-          // Use alternatives with explicit base64 encoding
-          // SES should preserve this, unlike SMTP2GO which rewrites to quoted-printable
-          alternatives: [
-            {
-              contentType: 'text/calendar; method=REQUEST; charset=UTF-8',
-              content: Buffer.from(finalIcs, 'utf8'),
-              encoding: 'base64' // Explicitly set base64
-            }
-          ]
-        })
+        // Generate unique boundary for multipart message
+        const boundary = 'b-' + Math.random().toString(36).slice(2)
+        
+        // Construct raw MIME message with CRLF line endings (MIME spec requirement)
+        // HTML part can be quoted-printable, but calendar MUST be base64
+        const rawMime = `MIME-Version: 1.0\r
+From: Meetup <noreply@numstro.com>\r
+To: ${voter.participant_email}\r
+Reply-To: ${poll.creator_email}\r
+Subject: ${subject}\r
+Content-Type: multipart/alternative; boundary="${boundary}"\r
+\r
+--${boundary}\r
+Content-Type: text/html; charset=UTF-8\r
+Content-Transfer-Encoding: quoted-printable\r
+\r
+${personalizedHtml}\r
+\r
+--${boundary}\r
+Content-Type: text/calendar; method=REQUEST; charset=UTF-8\r
+Content-Transfer-Encoding: base64\r
+Content-Disposition: attachment; filename="invite.ics"\r
+\r
+${icsBase64}\r
+--${boundary}--`
+        
+        await sesClient.send(new SendRawEmailCommand({
+          RawMessage: { Data: Buffer.from(rawMime, 'utf8') }
+        }))
         
         console.log(`[Calendar Invites] Successfully sent email to ${voter.participant_email}`)
         emailResults.push({ email: voter.participant_email, success: true })

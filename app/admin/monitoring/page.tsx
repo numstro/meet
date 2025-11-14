@@ -134,11 +134,20 @@ export default function MonitoringDashboard() {
         .select('created_at, ip_address, recipient_count')
         .not('creator_email', 'is', null) // Calendar invites have creator_email
 
-      const { data: invitesLast24h } = await supabase
+      const { data: invitesLast24h, error: invitesError } = await supabase
         .from('rate_limits')
-        .select('created_at, ip_address, recipient_count')
+        .select('created_at, ip_address, recipient_count, creator_email')
         .not('creator_email', 'is', null)
         .gte('created_at', yesterday.toISOString())
+
+      // Debug logging
+      console.log('[Monitoring] Calendar invites query:', {
+        yesterday: yesterday.toISOString(),
+        now: now.toISOString(),
+        invitesFound: invitesLast24h?.length || 0,
+        invitesData: invitesLast24h,
+        error: invitesError
+      })
 
       // Count calendar invite rate limit hits (IPs that hit 100 invites/day limit)
       const inviteIPCounts: Record<string, number> = {}
@@ -149,8 +158,15 @@ export default function MonitoringDashboard() {
 
       // Calculate exact emails sent (sum of recipient_count, fallback to invite count if null)
       const emailsSentLast24h = invitesLast24h?.reduce((sum: number, invite: any) => {
-        return sum + (invite.recipient_count || 1) // Default to 1 if recipient_count not set (old records)
+        const count = invite.recipient_count ?? 1 // Use nullish coalescing
+        console.log('[Monitoring] Invite email count:', { invite: invite.created_at, recipient_count: invite.recipient_count, using: count })
+        return sum + count
       }, 0) || 0
+      
+      console.log('[Monitoring] Email count calculation:', {
+        invitesCount: invitesLast24h?.length || 0,
+        emailsSent: emailsSentLast24h
+      })
 
       // Get all rate limits for email-IP correlation analysis - SIMPLIFIED
       const { data: allRateLimits } = await supabase
@@ -173,7 +189,25 @@ export default function MonitoringDashboard() {
       setBannedIPs(bannedIPsData)
 
       // Calculate unique IPs in last 24h
+      // Note: This counts IPs from rate_limits (poll creation), not calendar invites
+      // For more accurate "unique users", we should count from polls table instead
       const uniqueIps = new Set(rateLimits?.map((rl: RateLimit) => rl.ip_address) || []).size
+      
+      // Also get unique IPs from polls table (more accurate for poll creators)
+      const { data: pollsLast24hWithIPs, error: pollsIPError } = await supabase
+        .from('polls')
+        .select('creator_ip, created_at')
+        .gte('created_at', yesterday.toISOString())
+        .not('creator_ip', 'is', null)
+      
+      console.log('[Monitoring] Polls query:', {
+        yesterday: yesterday.toISOString(),
+        pollsFound: pollsLast24hWithIPs?.length || 0,
+        pollsData: pollsLast24hWithIPs,
+        error: pollsIPError
+      })
+      
+      const uniqueIPsFromPolls = new Set(pollsLast24hWithIPs?.map((p: any) => p.creator_ip) || []).size
 
       // Count rate limit hits (IPs that hit the rate limit)
       const ipCounts: Record<string, number> = {}
@@ -188,7 +222,7 @@ export default function MonitoringDashboard() {
         pollsLast7d: pollsLast7d?.length || 0,
         totalResponses: allResponses?.length || 0,
         responsesLast24h: responsesLast24h?.length || 0,
-        uniqueIpsLast24h: uniqueIps,
+        uniqueIpsLast24h: uniqueIPsFromPolls || uniqueIps, // Prefer polls table, fallback to rate_limits
         rateLimitHits,
         totalInvitesSent: allInvites?.length || 0,
         invitesLast24h: invitesLast24h?.length || 0,

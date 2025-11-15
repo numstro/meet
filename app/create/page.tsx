@@ -519,19 +519,19 @@ export default function CreatePollPage() {
                         <div className="text-xs sm:text-sm font-medium text-gray-700">
                           {option.date ? format(new Date(option.date + 'T00:00:00'), 'EEEE, MMM d') : 'Select date'}
                         </div>
-                        <div className="text-xs text-gray-400 flex gap-1">
+                        <div className="text-xs text-blue-500 flex gap-1">
                           <button
                             type="button"
                             onClick={() => selectAllForDay(index)}
-                            className="hover:text-gray-600 transition-colors"
+                            className="hover:text-blue-700 transition-colors"
                           >
                             Select all
                           </button>
-                          <span className="text-gray-300">|</span>
+                          <span className="text-blue-300">|</span>
                           <button
                             type="button"
                             onClick={() => clearAllForDay(index)}
-                            className="hover:text-gray-600 transition-colors"
+                            className="hover:text-blue-700 transition-colors"
                           >
                             Clear
                           </button>

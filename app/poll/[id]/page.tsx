@@ -246,12 +246,17 @@ export default function PollPage() {
       calculateSummary(optionsData || [], responsesData || [])
 
       // Load which options have had invites sent, with timestamps
-      if (pollData.creator_email) {
+      // Only check for invites for options that belong to THIS poll
+      if (pollData.creator_email && sortedOptions.length > 0) {
+        // Get all option IDs for this poll
+        const currentPollOptionIds = sortedOptions.map(opt => opt.id)
+        
         const { data: invitesData, error: invitesError } = await supabase
           .from('rate_limits')
           .select('option_id, created_at')
           .eq('creator_email', pollData.creator_email)
           .not('option_id', 'is', null)
+          .in('option_id', currentPollOptionIds)
           .order('created_at', { ascending: false })
 
         if (!invitesError && invitesData) {
@@ -259,7 +264,7 @@ export default function PollPage() {
           const detailsMap = new Map<string, { created_at: string }>()
           
           invitesData.forEach((r: any) => {
-            if (r.option_id && typeof r.option_id === 'string') {
+            if (r.option_id && typeof r.option_id === 'string' && currentPollOptionIds.includes(r.option_id)) {
               optionIdsWithInvites.add(r.option_id)
               // Store the most recent timestamp for each option
               if (!detailsMap.has(r.option_id) || new Date(r.created_at) > new Date(detailsMap.get(r.option_id)!.created_at)) {
@@ -271,6 +276,10 @@ export default function PollPage() {
           setOptionsWithInvites(optionIdsWithInvites)
           setInviteDetails(detailsMap)
         }
+      } else {
+        // If no options yet, clear any existing invite data
+        setOptionsWithInvites(new Set())
+        setInviteDetails(new Map())
       }
 
       // Check localStorage for verified creator email

@@ -842,7 +842,7 @@ export default function PollPage() {
         {poll.description && (
           <p className="text-gray-600 mb-4">{poll.description}</p>
         )}
-        <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500 mb-3">
+        <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500 mb-2">
           <span>👤 Created by {poll.creator_name}</span>
           {poll.location && <span>📍 {poll.location}</span>}
           {poll.deadline && (
@@ -851,33 +851,26 @@ export default function PollPage() {
         </div>
         {/* Organizer Indicator Badge */}
         {isOrganizer && (
-          <div className="inline-flex items-center gap-2 px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">
+          <div className="inline-flex items-center gap-2 px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium mb-2">
             <span>🔑</span>
             <span>Organizer access enabled</span>
           </div>
         )}
+        {/* Inline organizer link - Only for non-organizers */}
+        {!isOrganizer && poll && getPollStatus(poll) === 'active' && (
+          <p className="text-sm text-blue-600 font-medium flex items-center gap-1">
+            <span>🔑</span>
+            <span>Are you the organizer?</span>
+            <button
+              onClick={() => setShowOrganizerAuthModal(true)}
+              className="underline hover:text-blue-800"
+            >
+              Log in to manage invites
+            </button>
+            <span>→</span>
+          </p>
+        )}
       </div>
-
-      {/* Organizer Access CTA Box - Only for non-organizers */}
-      {!isOrganizer && poll && getPollStatus(poll) === 'active' && (
-        <div className="bg-[#E7F0FF] border border-blue-200 rounded-lg p-3 mb-8">
-          <div className="flex items-start gap-3">
-            <span className="text-xl">🔑</span>
-            <div className="flex-1">
-              <h3 className="text-sm font-semibold text-gray-900 mb-1">Organizer access</h3>
-              <p className="text-xs text-slate-600 mb-3">
-                If you're the organizer, log in to send invites or manage the poll.
-              </p>
-              <button
-                onClick={() => setShowOrganizerAuthModal(true)}
-                className="text-sm text-blue-600 hover:text-blue-800 font-medium hover:underline"
-              >
-                Log in as organizer →
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Share This Poll - Moved to top */}
       {poll && getPollStatus(poll) === 'active' && (

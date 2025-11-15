@@ -827,21 +827,52 @@ export default function PollPage() {
   return (
     <div className="max-w-4xl mx-auto px-4 py-6">
       {/* Poll Header */}
-      <div className="mb-8">
+      <div className="mb-6">
         <div className="flex justify-between items-start mb-2">
           <h1 className="text-3xl font-bold text-gray-900">{poll.title}</h1>
         </div>
         {poll.description && (
           <p className="text-gray-600 mb-4">{poll.description}</p>
         )}
-        <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500">
+        <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500 mb-3">
           <span>👤 Created by {poll.creator_name}</span>
           {poll.location && <span>📍 {poll.location}</span>}
           {poll.deadline && (
             <span>⏰ Respond by {format(new Date(poll.deadline + 'T00:00:00'), 'MMM d, yyyy')}</span>
           )}
         </div>
+        {/* Organizer Indicator Badge */}
+        {verifiedCreatorEmail && (
+          <div className="inline-flex items-center gap-2 px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">
+            <span>👑</span>
+            <span>Organizer Access Enabled</span>
+          </div>
+        )}
       </div>
+
+      {/* Share This Poll - Moved to top */}
+      {poll && getPollStatus(poll) === 'active' && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+          <h3 className="text-blue-900 font-semibold mb-2">🔗 Share This Poll</h3>
+          <p className="text-blue-800 text-sm mb-3">Send this link to participants so they can vote:</p>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={typeof window !== 'undefined' ? window.location.href : ''}
+              readOnly
+              className="flex-1 px-3 py-2 bg-white border border-blue-300 rounded-md font-mono text-sm"
+            />
+            <button
+              type="button"
+              data-share-button
+              onClick={() => handleCreatorAction('share')}
+              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors whitespace-nowrap"
+            >
+              📋 Copy Link
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Poll Status Banner */}
       {poll && getPollStatus(poll) !== 'active' && (
@@ -1042,12 +1073,15 @@ export default function PollPage() {
               </table>
             </div>
             
-            {/* Invitation Status - Show which options have had invites sent */}
+            {/* Invitation Status - Success box style */}
             {optionsWithInvites.size > 0 && (
-              <div className="mt-4 pt-4 border-t border-gray-200">
-                <div className="text-sm text-gray-600">
-                  <span className="font-medium">📅 Invitations sent for:</span>
-                  <div className="mt-2 space-y-2">
+              <div className="mt-6 pt-4 border-t border-gray-200">
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className="text-lg">📨</span>
+                    <h4 className="font-semibold text-green-900">Invitations Sent</h4>
+                  </div>
+                  <div className="space-y-2">
                     {options
                       .filter(opt => optionsWithInvites.has(opt.id))
                       .map(option => {
@@ -1073,9 +1107,9 @@ export default function PollPage() {
                         const timeRange = `${formatTime(startTime)} - ${formatTime(endTime)}`
                         
                         return (
-                          <div key={option.id} className="inline-flex flex-col px-3 py-2 bg-green-50 text-green-700 rounded-md text-xs border border-green-200">
+                          <div key={option.id} className="inline-flex flex-col px-3 py-2 bg-white text-green-800 rounded-md text-xs border border-green-300 mr-2 mb-2">
                             <div className="font-medium">
-                              {dateStr} {timeLabel}
+                              {dateStr} — {timeLabel}
                             </div>
                             <div className="text-green-600 mt-1">
                               {timeRange}
@@ -1083,19 +1117,19 @@ export default function PollPage() {
                           </div>
                         )
                       })}
-      </div>
-          </div>
-        </div>
-      )}
+                  </div>
+                </div>
+              </div>
+            )}
         </div>
       )}
       </div>
 
-      {/* Voting Form */}
+      {/* Voting Form - Improved styling */}
       {(!hasVoted || isEditingVotes) && poll && getPollStatus(poll) === 'active' ? (
-        <div className="bg-white rounded-lg shadow p-6">
+        <div className="bg-gray-50 rounded-lg border border-gray-200 p-6 mb-6">
           <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-semibold">
+            <h2 className="text-xl font-semibold text-gray-900">
               {isEditingVotes ? '✏️ Edit Your Votes' : '✅ Mark Your Availability'}
             </h2>
             {isEditingVotes && (
@@ -1143,9 +1177,11 @@ export default function PollPage() {
             </div>
 
             {/* Time Options - Grid Layout */}
-            <div>
-              <h3 className="text-lg font-medium mb-4">Select your availability for each option:</h3>
-              <div className="overflow-x-auto border border-gray-200 rounded-lg" style={{ overscrollBehavior: 'contain' }}>
+            <div className="mt-4">
+              <div className="border-t border-gray-300 pt-4 mb-4">
+                <h3 className="text-lg font-medium text-gray-900 mb-4">Click to vote:</h3>
+              </div>
+              <div className="overflow-x-auto border border-gray-200 rounded-lg bg-white" style={{ overscrollBehavior: 'contain' }}>
                 <table className="w-full border-collapse" style={{ minWidth: 'fit-content' }}>
                   <thead>
                     <tr className="bg-gray-50">
@@ -1311,9 +1347,9 @@ export default function PollPage() {
         </div>
       ) : null}
 
-      {/* Already Voted? - After voting form */}
+      {/* Already Voted? - Moved below voting form */}
       {!hasVoted && !isEditingVotes && poll && getPollStatus(poll) === 'active' && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-8">
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-6">
           <h2 className="text-lg font-semibold mb-4">🔍 Already Voted?</h2>
           <p className="text-blue-800 mb-4">
             Enter your email to check if you've already voted and edit your responses.
@@ -1336,28 +1372,6 @@ export default function PollPage() {
           </div>
         </div>
       )}
-
-      {/* Share Poll Section - Always visible, but requires email verification */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-8">
-        <h3 className="text-blue-900 font-semibold mb-2">📤 Share This Poll</h3>
-        <p className="text-blue-800 text-sm mb-3">Send this link to participants so they can vote:</p>
-        <div className="flex gap-2">
-          <input
-            type="text"
-            value={typeof window !== 'undefined' ? window.location.href : ''}
-            readOnly
-            className="flex-1 px-3 py-2 bg-white border border-blue-300 rounded-md font-mono text-sm"
-          />
-          <button
-            type="button"
-            data-share-button
-            onClick={() => handleCreatorAction('share')}
-            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors whitespace-nowrap"
-          >
-            📋 Copy Link
-          </button>
-        </div>
-      </div>
 
       {/* Propose New Time */}
       {poll && getPollStatus(poll) === 'active' && (

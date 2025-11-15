@@ -14,7 +14,6 @@ interface Poll {
   location?: string
   deadline?: string
   deleted_at?: string | null
-  creator_admin_key?: string | null
 }
 
 interface PollOption {
@@ -95,8 +94,13 @@ export default function PollPage() {
   const [customStartTime, setCustomStartTime] = useState('')
   const [customEndTime, setCustomEndTime] = useState('')
 
-  // Creator mode state - check if user has admin key in URL
-  const [isCreatorMode, setIsCreatorMode] = useState(false)
+  // Creator email verification state
+  const [verifiedCreatorEmail, setVerifiedCreatorEmail] = useState<string | null>(null)
+  const [showCreatorEmailModal, setShowCreatorEmailModal] = useState(false)
+  const [creatorEmailInput, setCreatorEmailInput] = useState('')
+  const [isVerifyingEmail, setIsVerifyingEmail] = useState(false)
+  const [emailVerificationError, setEmailVerificationError] = useState('')
+  const [pendingCreatorAction, setPendingCreatorAction] = useState<'invites' | 'delete' | 'share' | null>(null)
 
   // Time bucket options
   const timeBuckets = [
@@ -122,17 +126,6 @@ export default function PollPage() {
     }
   }, [pollId])
 
-  // Check if user is in creator mode (has admin key in URL)
-  useEffect(() => {
-    const adminKey = searchParams.get('admin')
-    if (adminKey && poll) {
-      // Verify admin key matches poll's creator_admin_key
-      if (poll.creator_admin_key === adminKey) {
-        setIsCreatorMode(true)
-      }
-    }
-  }, [searchParams, poll])
-
   // Auto-populate creator info from URL params (only when coming from poll creation)
   useEffect(() => {
     const creatorName = searchParams.get('creatorName')
@@ -145,7 +138,6 @@ export default function PollPage() {
       setCreatorEmailForInvite(creatorEmail)
       
       // Clear the URL params after setting them (optional, for cleaner URLs)
-      // But keep the admin key if present
       const url = new URL(window.location.href)
       url.searchParams.delete('creatorName')
       url.searchParams.delete('creatorEmail')
@@ -538,15 +530,88 @@ export default function PollPage() {
     }
   }
 
-  const sendCalendarInvites = async () => {
-    if (!poll || !selectedOptionId || !creatorEmailForInvite) {
-      setError('Please select a time option and enter your email')
+  // Verify creator email
+  const verifyCreatorEmail = async (email: string): Promise<boolean> => {
+    if (!poll) return false
+    return email.toLowerCase().trim() === poll.creator_email.toLowerCase().trim()
+  }
+
+  // Handle creator action (invites, delete, share)
+  const handleCreatorAction = async (action: 'invites' | 'delete' | 'share') => {
+    if (!poll) return
+
+    // If already verified, proceed
+    if (verifiedCreatorEmail) {
+      if (action === 'invites') {
+        setShowCalendarModal(true)
+      } else if (action === 'delete') {
+        setShowDeleteConfirm(true)
+      } else if (action === 'share') {
+        // Share is always available, just copy link
+        if (typeof window !== 'undefined') {
+          navigator.clipboard.writeText(window.location.href)
+          // Show feedback
+          const button = document.querySelector('[data-share-button]') as HTMLButtonElement
+          if (button) {
+            const originalText = button.textContent
+            button.textContent = '✅ Copied!'
+            setTimeout(() => {
+              button.textContent = originalText
+            }, 2000)
+          }
+        }
+      }
       return
     }
 
-    if (creatorEmailForInvite.toLowerCase() !== poll.creator_email.toLowerCase()) {
-      setErrorMessage('Only the poll creator can send calendar invites. The email you entered does not match the poll creator\'s email.')
-      setShowErrorModal(true)
+    // Otherwise, show email verification modal
+    setPendingCreatorAction(action)
+    setShowCreatorEmailModal(true)
+    setEmailVerificationError('')
+  }
+
+  // Submit email verification
+  const submitEmailVerification = async () => {
+    if (!poll || !creatorEmailInput.trim()) {
+      setEmailVerificationError('Please enter your email address')
+      return
+    }
+
+    setIsVerifyingEmail(true)
+    setEmailVerificationError('')
+
+    const isValid = await verifyCreatorEmail(creatorEmailInput.trim())
+    
+    if (isValid) {
+      setVerifiedCreatorEmail(creatorEmailInput.toLowerCase().trim())
+      setShowCreatorEmailModal(false)
+      setCreatorEmailInput('')
+      
+      // Proceed with the pending action
+      if (pendingCreatorAction === 'invites') {
+        setShowCalendarModal(true)
+        setCreatorEmailForInvite(creatorEmailInput.toLowerCase().trim())
+      } else if (pendingCreatorAction === 'delete') {
+        setShowDeleteConfirm(true)
+        setDeleteEmail(creatorEmailInput.toLowerCase().trim())
+      } else if (pendingCreatorAction === 'share') {
+        // Share is always available
+        if (typeof window !== 'undefined') {
+          navigator.clipboard.writeText(window.location.href)
+        }
+      }
+      
+      setPendingCreatorAction(null)
+    } else {
+      setEmailVerificationError('This poll was not created with that email address.')
+    }
+    
+    setIsVerifyingEmail(false)
+  }
+
+  const sendCalendarInvites = async () => {
+    if (!poll || !selectedOptionId || !verifiedCreatorEmail) {
+      setError('Please select a time option')
       return
     }
 
@@ -572,7 +637,7 @@ export default function PollPage() {
         body: JSON.stringify({
           pollId: poll.id,
           optionId: selectedOptionId,
-          creatorEmail: creatorEmailForInvite.toLowerCase(),
+          creatorEmail: verifiedCreatorEmail,
           // Always send times (will be defaults if custom times not provided)
           startTime: startTime,
           endTime: endTime,
@@ -589,7 +654,6 @@ export default function PollPage() {
           setShowCalendarModal(false)
           setInviteResult(null)
           setSelectedOptionId(null)
-          setCreatorEmailForInvite('')
           setCustomStartTime('')
           setCustomEndTime('')
         }, 2000)
@@ -610,8 +674,8 @@ export default function PollPage() {
   }
 
   const deletePoll = async () => {
-    if (!poll || deleteEmail.toLowerCase() !== poll.creator_email.toLowerCase()) {
-      setErrorMessage('Please enter the correct creator email address')
+    if (!poll || !verifiedCreatorEmail) {
+      setErrorMessage('Please verify your creator email first')
       setShowErrorModal(true)
       return
     }
@@ -675,15 +739,6 @@ export default function PollPage() {
       <div className="mb-8">
         <div className="flex justify-between items-start mb-2">
           <h1 className="text-3xl font-bold text-gray-900">{poll.title}</h1>
-          {/* Delete button only shown to creators */}
-          {isCreatorMode && (
-            <button
-              onClick={() => setShowDeleteConfirm(true)}
-              className="text-red-600 hover:text-red-800 text-sm font-medium px-3 py-1 rounded border border-red-200 hover:border-red-300 transition-colors"
-            >
-              🗑️ Delete Poll
-            </button>
-          )}
         </div>
         {poll.description && (
           <p className="text-gray-600 mb-4">{poll.description}</p>
@@ -1145,53 +1200,57 @@ export default function PollPage() {
         </div>
       )}
 
-      {/* Share Poll Section - Creator only, below Already Voted? */}
-      {isCreatorMode && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-8">
-          <h3 className="text-blue-900 font-semibold mb-2">📤 Share This Poll</h3>
-          <p className="text-blue-800 text-sm mb-3">Send this link to participants so they can vote:</p>
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={typeof window !== 'undefined' ? window.location.href : ''}
-              readOnly
-              className="flex-1 px-3 py-2 bg-white border border-blue-300 rounded-md font-mono text-sm"
-            />
-            <button
-              type="button"
-              onClick={() => {
-                if (typeof window !== 'undefined') {
-                  navigator.clipboard.writeText(window.location.href)
-                  // Simple feedback - you could add a toast here
-                  const button = event?.target as HTMLButtonElement
-                  const originalText = button.textContent
-                  button.textContent = '✅ Copied!'
-                  setTimeout(() => {
-                    button.textContent = originalText
-                  }, 2000)
-                }
-              }}
-              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors whitespace-nowrap"
-            >
-              📋 Copy Link
-            </button>
-          </div>
+      {/* Share Poll Section - Always visible, but requires email verification */}
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-8">
+        <h3 className="text-blue-900 font-semibold mb-2">📤 Share This Poll</h3>
+        <p className="text-blue-800 text-sm mb-3">Send this link to participants so they can vote:</p>
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={typeof window !== 'undefined' ? window.location.href : ''}
+            readOnly
+            className="flex-1 px-3 py-2 bg-white border border-blue-300 rounded-md font-mono text-sm"
+          />
+          <button
+            type="button"
+            data-share-button
+            onClick={() => handleCreatorAction('share')}
+            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors whitespace-nowrap"
+          >
+            📋 Copy Link
+          </button>
         </div>
-      )}
+      </div>
 
-      {/* Send Calendar Invites - Creator only, below Share Poll */}
-      {isCreatorMode && summary.length > 0 && poll && getPollStatus(poll) === 'active' && (
+      {/* Send Calendar Invites - Creator only, requires email verification */}
+      {summary.length > 0 && poll && getPollStatus(poll) === 'active' && (
         <div className="bg-white rounded-lg shadow p-6 mb-8">
           <h2 className="text-xl font-semibold mb-4">📅 Send Calendar Invites</h2>
-          <p className="text-gray-600 mb-4">
-            Send calendar invites to all participants who voted "yes" or "maybe" for a selected time option.
-          </p>
-          <button
-            onClick={() => setShowCalendarModal(true)}
-            className="w-full px-4 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors font-medium"
-          >
-            📅 Send Calendar Invites
-          </button>
+          {verifiedCreatorEmail ? (
+            <>
+              <p className="text-gray-600 mb-4">
+                Send calendar invites to all participants who voted "yes" or "maybe" for a selected time option.
+              </p>
+              <button
+                onClick={() => setShowCalendarModal(true)}
+                className="w-full px-4 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors font-medium"
+              >
+                📅 Send Calendar Invites
+              </button>
+            </>
+          ) : (
+            <>
+              <p className="text-gray-600 mb-4">
+                Enter your creator email to send calendar invites to all participants who voted "yes" or "maybe" for a selected time option.
+              </p>
+              <button
+                onClick={() => handleCreatorAction('invites')}
+                className="w-full px-4 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors font-medium"
+              >
+                📅 Send Calendar Invites
+              </button>
+            </>
+          )}
         </div>
       )}
 
@@ -1321,19 +1380,35 @@ export default function PollPage() {
       </div>
       )}
 
-      {/* Delete Poll - Creator only, at very bottom */}
-      {isCreatorMode && poll && getPollStatus(poll) === 'active' && (
+      {/* Delete Poll - Creator only, requires email verification */}
+      {poll && getPollStatus(poll) === 'active' && (
         <div className="bg-white rounded-lg shadow p-6 mb-8 border-l-4 border-red-500">
           <h2 className="text-xl font-semibold mb-4 text-red-600">🗑️ Manage Poll</h2>
-          <p className="text-gray-600 mb-4">
-            Permanently delete this poll. This action cannot be undone.
-          </p>
-          <button
-            onClick={() => setShowDeleteConfirm(true)}
-            className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
-          >
-            Delete Poll
-          </button>
+          {verifiedCreatorEmail ? (
+            <>
+              <p className="text-gray-600 mb-4">
+                Permanently delete this poll. This action cannot be undone.
+              </p>
+              <button
+                onClick={() => setShowDeleteConfirm(true)}
+                className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
+              >
+                Delete Poll
+              </button>
+            </>
+          ) : (
+            <>
+              <p className="text-gray-600 mb-4">
+                Enter your creator email to manage this poll. Permanently delete this poll. This action cannot be undone.
+              </p>
+              <button
+                onClick={() => handleCreatorAction('delete')}
+                className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
+              >
+                Delete Poll
+              </button>
+            </>
+          )}
         </div>
       )}
 
@@ -1486,30 +1561,12 @@ export default function PollPage() {
                 </div>
               )}
 
-              {/* Creator Email Verification */}
-              <div className="mb-6">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Enter your email to verify you're the poll creator:
-                </label>
-                <input
-                  type="email"
-                  value={creatorEmailForInvite}
-                  onChange={(e) => setCreatorEmailForInvite(e.target.value)}
-                  className="w-full px-3 py-2 bg-white text-gray-900 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="your@email.com"
-                />
-                <p className="mt-1 text-xs text-gray-500">
-                  Only the poll creator can send calendar invites.
-                </p>
-              </div>
-
               {/* Action Buttons */}
               <div className="flex gap-3">
                 <button
                   onClick={() => {
                     setShowCalendarModal(false)
                     setSelectedOptionId(null)
-                    setCreatorEmailForInvite('')
                     setInviteResult(null)
                     setCustomStartTime('')
                     setCustomEndTime('')
@@ -1520,7 +1577,7 @@ export default function PollPage() {
                 </button>
                 <button
                   onClick={sendCalendarInvites}
-                  disabled={isSendingInvites || !selectedOptionId || !creatorEmailForInvite.trim()}
+                  disabled={isSendingInvites || !selectedOptionId}
                   className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
                   {isSendingInvites ? 'Sending...' : '📅 Send Invites'}
@@ -1540,18 +1597,9 @@ export default function PollPage() {
               Are you sure you want to delete this poll? This action cannot be undone.
             </p>
             
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Enter creator email to confirm:
-              </label>
-              <input
-                type="email"
-                value={deleteEmail}
-                onChange={(e) => setDeleteEmail(e.target.value)}
-                className="w-full px-3 py-2 bg-white text-gray-900 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Creator email address"
-              />
-            </div>
+            <p className="text-sm text-gray-500 mb-4">
+              You are deleting this poll as: <strong>{verifiedCreatorEmail}</strong>
+            </p>
 
             {error && (
               <div className="bg-red-50 border border-red-200 rounded p-3 mb-4">
@@ -1563,7 +1611,6 @@ export default function PollPage() {
               <button
                 onClick={() => {
                   setShowDeleteConfirm(false)
-                  setDeleteEmail('')
                   setError('')
                 }}
                 className="flex-1 px-4 py-2 text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 transition-colors"
@@ -1573,11 +1620,83 @@ export default function PollPage() {
               </button>
               <button
                 onClick={deletePoll}
-                disabled={isDeleting || !deleteEmail.trim()}
+                disabled={isDeleting}
                 className="flex-1 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 {isDeleting ? 'Deleting...' : 'Delete Poll'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Creator Email Verification Modal */}
+      {showCreatorEmailModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-semibold text-gray-900">Verify Creator Email</h3>
+                <button
+                  onClick={() => {
+                    setShowCreatorEmailModal(false)
+                    setCreatorEmailInput('')
+                    setEmailVerificationError('')
+                    setPendingCreatorAction(null)
+                  }}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <p className="text-gray-600 mb-4">
+                Enter the email address you used to create this poll to manage it.
+              </p>
+
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Creator Email:
+                </label>
+                <input
+                  type="email"
+                  value={creatorEmailInput}
+                  onChange={(e) => setCreatorEmailInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      submitEmailVerification()
+                    }
+                  }}
+                  className="w-full px-3 py-2 bg-white text-gray-900 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="your@email.com"
+                  autoFocus
+                />
+                {emailVerificationError && (
+                  <p className="mt-2 text-sm text-red-600">{emailVerificationError}</p>
+                )}
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => {
+                    setShowCreatorEmailModal(false)
+                    setCreatorEmailInput('')
+                    setEmailVerificationError('')
+                    setPendingCreatorAction(null)
+                  }}
+                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-colors"
+                  disabled={isVerifyingEmail}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={submitEmailVerification}
+                  disabled={isVerifyingEmail || !creatorEmailInput.trim()}
+                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  {isVerifyingEmail ? 'Verifying...' : 'Verify'}
+                </button>
+              </div>
             </div>
           </div>
         </div>

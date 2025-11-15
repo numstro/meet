@@ -212,9 +212,6 @@ export default function CreatePollPage() {
     }
 
     try {
-      // Generate a random admin key for creator-only features
-      const adminKey = crypto.randomUUID()
-
       // Create the poll
       const { data: pollResult, error: pollError } = await supabase
         .from('polls')
@@ -225,8 +222,7 @@ export default function CreatePollPage() {
           creator_email: pollData.creatorEmail,
           creator_ip: userIpAddress,
           location: pollData.location || null,
-          deadline: pollData.deadline || null,
-          creator_admin_key: adminKey
+          deadline: pollData.deadline || null
         })
         .select()
         .single()
@@ -254,11 +250,10 @@ export default function CreatePollPage() {
 
       // No need to record rate limits separately - polls table is now the source of truth!
 
-      // Redirect directly to the poll with creator info and admin key for auto-population
+      // Redirect directly to the poll with creator info for auto-population
       const params = new URLSearchParams({
         creatorName: pollData.creatorName,
-        creatorEmail: pollData.creatorEmail,
-        admin: adminKey
+        creatorEmail: pollData.creatorEmail
       })
       router.push(`/poll/${pollId}?${params.toString()}`)
     } catch (err: any) {

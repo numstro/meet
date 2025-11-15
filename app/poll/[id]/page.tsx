@@ -249,7 +249,7 @@ export default function PollPage() {
       // Only check for invites for options that belong to THIS poll
       if (pollData.creator_email && sortedOptions.length > 0) {
         // Get all option IDs for this poll
-        const currentPollOptionIds = sortedOptions.map(opt => opt.id)
+        const currentPollOptionIds = sortedOptions.map((opt: PollOption) => opt.id)
         
         const { data: invitesData, error: invitesError } = await supabase
           .from('rate_limits')

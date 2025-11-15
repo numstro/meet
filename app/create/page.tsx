@@ -105,6 +105,18 @@ export default function CreatePollPage() {
     setTimeOptions(updated)
   }
 
+  const selectAllForDay = (index: number) => {
+    const updated = [...timeOptions]
+    updated[index].timeBuckets = ['morning', 'afternoon', 'evening']
+    setTimeOptions(updated)
+  }
+
+  const clearAllForDay = (index: number) => {
+    const updated = [...timeOptions]
+    updated[index].timeBuckets = []
+    setTimeOptions(updated)
+  }
+
   const removeTimeOption = (index: number) => {
     if (timeOptions.length > 1) {
       setTimeOptions(timeOptions.filter((_, i) => i !== index))
@@ -503,6 +515,28 @@ export default function CreatePollPage() {
                 {timeOptions.map((option, index) => (
                   <tr key={index} className="hover:bg-gray-50">
                     <td className="p-2 sm:p-3 border-r border-b border-gray-200" style={{ maxWidth: '150px', width: '120px' }}>
+                      <div className="flex items-center justify-between gap-2 mb-1">
+                        <div className="text-xs sm:text-sm font-medium text-gray-700">
+                          {option.date ? format(new Date(option.date + 'T00:00:00'), 'EEEE, MMM d') : 'Select date'}
+                        </div>
+                        <div className="text-xs text-gray-400 flex gap-1">
+                          <button
+                            type="button"
+                            onClick={() => selectAllForDay(index)}
+                            className="hover:text-gray-600 transition-colors"
+                          >
+                            Select all
+                          </button>
+                          <span className="text-gray-300">|</span>
+                          <button
+                            type="button"
+                            onClick={() => clearAllForDay(index)}
+                            className="hover:text-gray-600 transition-colors"
+                          >
+                            Clear
+                          </button>
+                        </div>
+                      </div>
                       <input
                         type="date"
                         value={option.date}
@@ -510,11 +544,6 @@ export default function CreatePollPage() {
                         className="w-full px-2 sm:px-3 py-1.5 sm:py-2 bg-white text-gray-900 text-sm sm:text-base border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                         style={{ fontSize: '14px' }}
                       />
-                      {option.date && (
-                        <div className="text-xs text-gray-500 mt-1 whitespace-nowrap">
-                          {format(new Date(option.date + 'T00:00:00'), 'EEEE')}
-                        </div>
-                      )}
                     </td>
                     <td className="p-3 border-r border-b border-gray-200 text-center">
                       <input

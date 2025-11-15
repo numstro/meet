@@ -273,7 +273,22 @@ export async function POST(request: NextRequest) {
       const minStr = String(min).padStart(2, '0')
       return `${hour12}:${minStr} ${ampm}`
     }
-    const timeStr = `${formatTimeFromHourMin(startHour, startMin)} - ${formatTimeFromHourMin(endHour, endMin)}`
+    
+    // Get timezone abbreviation for display (e.g., "PST", "EST", "PDT", "EDT")
+    const getTimezoneAbbreviation = (tz: string): string => {
+      // Create a date in the timezone to get the current abbreviation
+      const now = new Date()
+      const formatter = new Intl.DateTimeFormat('en-US', {
+        timeZone: tz,
+        timeZoneName: 'short'
+      })
+      const parts = formatter.formatToParts(now)
+      const tzName = parts.find(p => p.type === 'timeZoneName')?.value || tz
+      return tzName
+    }
+    
+    const timezoneAbbr = getTimezoneAbbreviation(validTimezone)
+    const timeStr = `${formatTimeFromHourMin(startHour, startMin)} - ${formatTimeFromHourMin(endHour, endMin)} ${timezoneAbbr}`
     
     // Generate Google Calendar link as fallback
     // Format: YYYYMMDDTHHMMSSZ (UTC)
@@ -529,7 +544,7 @@ END:VTIMEZONE`,
           
           <div style="margin-top: 15px;">
             <p style="margin: 5px 0;"><strong>📅 Date:</strong> ${dateStr}</p>
-            <p style="margin: 5px 0;"><strong>🕐 Time:</strong> ${timeStr}</p>
+            <p style="margin: 5px 0;"><strong>🕐 Time:</strong> ${timeStr} (${validTimezone.replace('_', ' ')})</p>
             ${poll.location ? `<p style="margin: 5px 0;"><strong>📍 Location:</strong> ${poll.location}</p>` : ''}
           </div>
         </div>
@@ -571,7 +586,7 @@ END:VTIMEZONE`,
       console.log(`[Calendar Invites] Sending email ${i + 1}/${uniqueVoters.length} to ${voter.participant_email}`)
       try {
         const personalizedHtml = htmlContent.replace('Hi there,', `Hi ${voter.participant_name || 'there'},`)
-        const personalizedText = `${voter.participant_name || 'Hi there'},\n\n${poll.creator_name} has scheduled the meeting based on your availability:\n\n${poll.title}${poll.description ? `\n${poll.description}` : ''}\n\n📅 Date: ${dateStr}\n🕐 Time: ${timeStr}${poll.location ? `\n📍 Location: ${poll.location}` : ''}\n\nA calendar invite has been attached to this email as invite.ics. You can also add it directly to your calendar:\n\nAdd to Google Calendar: ${googleCalendarUrl}\n\nView Poll: ${request.nextUrl.origin}/poll/${pollId}\n\nThis invite was sent because you voted "yes" or "maybe" for this time slot.`
+        const personalizedText = `${voter.participant_name || 'Hi there'},\n\n${poll.creator_name} has scheduled the meeting based on your availability:\n\n${poll.title}${poll.description ? `\n${poll.description}` : ''}\n\n📅 Date: ${dateStr}\n🕐 Time: ${timeStr} (${validTimezone.replace('_', ' ')})${poll.location ? `\n📍 Location: ${poll.location}` : ''}\n\nA calendar invite has been attached to this email as invite.ics. You can also add it directly to your calendar:\n\nAdd to Google Calendar: ${googleCalendarUrl}\n\nView Poll: ${request.nextUrl.origin}/poll/${pollId}\n\nThis invite was sent because you voted "yes" or "maybe" for this time slot.`
         const subject = `📅 Calendar Invite: ${poll.title}`
         
         await sendInviteResend({

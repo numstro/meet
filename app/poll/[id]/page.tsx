@@ -858,16 +858,16 @@ export default function PollPage() {
         )}
         {/* Inline organizer link - Only for non-organizers */}
         {!isOrganizer && poll && getPollStatus(poll) === 'active' && (
-          <p className="text-sm text-blue-600 font-medium flex items-center gap-1">
+          <p className="text-sm text-blue-600 flex items-center gap-1 -mt-1 mb-1">
             <span>🔑</span>
-            <span>Are you the organizer?</span>
+            <span className="font-medium">Are you the organizer?</span>
             <button
               onClick={() => setShowOrganizerAuthModal(true)}
-              className="underline hover:text-blue-800"
+              className="font-semibold underline hover:text-blue-800"
             >
-              Log in to manage invites
+              Manage this invite
             </button>
-            <span>→</span>
+            <span>›</span>
           </p>
         )}
       </div>
@@ -1095,27 +1095,6 @@ export default function PollPage() {
               </table>
             </div>
             
-            {/* Best Option Status Badge (for organizer) */}
-            {isOrganizer && summary.length > 0 && (() => {
-              const bestOptions = getBestOptions()
-              if (bestOptions.length > 0) {
-                const bestOption = bestOptions[0]
-                const option = options.find(o => o.id === bestOption.option_id)
-                if (option) {
-                  const dateStr = format(new Date(option.option_date + 'T00:00:00'), 'MMM d')
-                  const timeLabel = option.option_text === 'morning' ? '🌅 Morning' :
-                                   option.option_text === 'afternoon' ? '☀️ Afternoon' :
-                                   '🌙 Evening'
-                  return (
-                    <div className="mt-4 text-sm text-slate-700">
-                      <span className="font-medium">Best option:</span> {dateStr} — {timeLabel} ({bestOption.yes_count} yes vote{bestOption.yes_count !== 1 ? 's' : ''})
-                    </div>
-                  )
-                }
-              }
-              return null
-            })()}
-
             {/* Invitation Status - Success box style (organizer only) */}
             {isOrganizer && optionsWithInvites.size > 0 && (
               <div className="mt-6 pt-4 border-t border-gray-200">
@@ -1597,43 +1576,6 @@ export default function PollPage() {
         </div>
       )}
 
-      {/* Organizer Tools (Restricted) - Collapsed card for non-organizers */}
-      {!isOrganizer && poll && getPollStatus(poll) === 'active' && (
-        <div className="bg-white rounded-lg shadow border border-gray-200 mb-8">
-          <button
-            onClick={() => setIsOrganizerToolsExpanded(!isOrganizerToolsExpanded)}
-            className="w-full px-6 py-4 flex items-center justify-between hover:bg-gray-50 transition-colors"
-          >
-            <div className="text-left">
-              <h3 className="text-lg font-semibold text-gray-900">Organizer tools (restricted)</h3>
-              <p className="text-sm text-gray-600 mt-1">Send calendar invites or delete this poll.</p>
-            </div>
-            <span className="text-gray-400 text-xl">
-              {isOrganizerToolsExpanded ? '▼' : '▶'}
-            </span>
-          </button>
-
-          {/* Expanded Content */}
-          {isOrganizerToolsExpanded && (
-            <div className="px-6 pb-6 border-t border-gray-200">
-              <div className="mt-4">
-                <p className="text-sm text-slate-600 mb-4">
-                  Only the poll organizer can access these tools. Log in as organizer to unlock.
-                </p>
-                <button
-                  onClick={() => {
-                    setIsOrganizerToolsExpanded(false)
-                    setShowOrganizerAuthModal(true)
-                  }}
-                  className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-                >
-                  Log in as organizer
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
 
 
       {/* Send Calendar Invites Modal */}

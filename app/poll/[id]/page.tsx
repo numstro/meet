@@ -1588,7 +1588,7 @@ export default function PollPage() {
       </div>
       )}
 
-      {/* Delete Poll - Organizer only, standalone at bottom */}
+      {/* Delete Poll - Organizer only, standalone at bottom (danger section) */}
       {isOrganizer && poll && getPollStatus(poll) === 'active' && (
         <div className="bg-red-50 border border-red-200 rounded-lg p-6 mb-8">
           <h3 className="text-lg font-semibold text-red-900 mb-2">🗑 Delete Poll</h3>
@@ -1601,6 +1601,44 @@ export default function PollPage() {
           >
             Delete Poll
           </button>
+        </div>
+      )}
+
+      {/* Organizer Tools (Restricted) - Collapsed card for non-organizers */}
+      {!isOrganizer && poll && getPollStatus(poll) === 'active' && (
+        <div className="bg-white rounded-lg shadow border border-gray-200 mb-8">
+          <button
+            onClick={() => setIsOrganizerToolsExpanded(!isOrganizerToolsExpanded)}
+            className="w-full px-6 py-4 flex items-center justify-between hover:bg-gray-50 transition-colors"
+          >
+            <div className="text-left">
+              <h3 className="text-lg font-semibold text-gray-900">Organizer tools (restricted)</h3>
+              <p className="text-sm text-gray-600 mt-1">Send calendar invites or delete this poll.</p>
+            </div>
+            <span className="text-gray-400 text-xl">
+              {isOrganizerToolsExpanded ? '▼' : '▶'}
+            </span>
+          </button>
+
+          {/* Expanded Content */}
+          {isOrganizerToolsExpanded && (
+            <div className="px-6 pb-6 border-t border-gray-200">
+              <div className="mt-4">
+                <p className="text-sm text-slate-600 mb-4">
+                  Only the poll organizer can access these tools. Log in as organizer to unlock.
+                </p>
+                <button
+                  onClick={() => {
+                    setIsOrganizerToolsExpanded(false)
+                    setShowOrganizerAuthModal(true)
+                  }}
+                  className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                >
+                  Log in as organizer
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

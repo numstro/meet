@@ -1216,7 +1216,7 @@ export default function PollPage() {
                                       const tooltipKey = `${option.id}-${email}`
                                       setOpenCommentTooltip(openCommentTooltip === tooltipKey ? null : tooltipKey)
                                     }}
-                                    className="text-xs opacity-60 hover:opacity-80 active:opacity-100 touch-manipulation"
+                                    className="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full hover:bg-blue-200 active:bg-blue-300 touch-manipulation transition-colors"
                                     aria-label="View comments"
                                   >
                                     💬
@@ -1489,15 +1489,15 @@ export default function PollPage() {
                                   <button
                                     type="button"
                                     onClick={() => toggleCommentField(option.id)}
-                                    className={`text-xs hover:underline flex items-center gap-1 ${
+                                    className={`text-xs flex items-center gap-1.5 px-2 py-0.5 rounded-full transition-colors ${
                                       hasComment 
-                                        ? 'text-blue-700 font-medium' 
-                                        : 'text-blue-600 hover:text-blue-800'
+                                        ? 'bg-blue-100 text-blue-700 font-medium hover:bg-blue-200' 
+                                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200 hover:text-gray-700'
                                     }`}
-                                    title={hasComment ? `Comment: ${userComments[option.id]}` : 'Add a comment'}
+                                    title={hasComment ? `Comment: ${userComments[option.id]}` : 'Add a note'}
                                   >
                                     {hasComment ? '💬' : '➕'}
-                                    <span className="ml-1">{hasComment ? 'Edit' : 'Add'}</span>
+                                    <span>{hasComment ? 'Edit' : 'Note'}</span>
                                   </button>
                                 )}
                               </div>

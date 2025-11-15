@@ -170,7 +170,10 @@ export default function PollPage() {
           localStorage.setItem(`verified_creator_${poll.id}`, verifiedEmail)
         }
         // Check if creator has already voted - if so, prevent them from voting again
-        await checkExistingVotes(verifiedEmail)
+        // Wrap in async function since useEffect callback cannot be async
+        ;(async () => {
+          await checkExistingVotes(verifiedEmail)
+        })()
       }
       
       // Clear the URL params after setting them (optional, for cleaner URLs)

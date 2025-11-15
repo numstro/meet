@@ -169,6 +169,8 @@ export default function PollPage() {
         if (typeof window !== 'undefined') {
           localStorage.setItem(`verified_creator_${poll.id}`, verifiedEmail)
         }
+        // Check if creator has already voted - if so, prevent them from voting again
+        await checkExistingVotes(verifiedEmail)
       }
       
       // Clear the URL params after setting them (optional, for cleaner URLs)
@@ -304,6 +306,8 @@ export default function PollPage() {
             storedVerifiedEmail.toLowerCase() === pollData.creator_email.toLowerCase()) {
           setVerifiedCreatorEmail(storedVerifiedEmail)
           setIsOrganizerToolsExpanded(true)
+          // Check if creator has already voted - if so, prevent them from voting again
+          await checkExistingVotes(storedVerifiedEmail)
         }
       }
 
@@ -688,6 +692,9 @@ export default function PollPage() {
       // Expand organizer tools if they were collapsed
       setIsOrganizerToolsExpanded(true)
       
+      // Check if creator has already voted - if so, prevent them from voting again
+      await checkExistingVotes(verifiedEmail)
+      
       // Proceed with the pending action
       if (pendingCreatorAction === 'invites') {
         setShowCalendarModal(true)
@@ -731,6 +738,9 @@ export default function PollPage() {
       if (typeof window !== 'undefined' && poll) {
         localStorage.setItem(`verified_creator_${poll.id}`, verifiedEmail)
       }
+      
+      // Check if creator has already voted - if so, prevent them from voting again
+      await checkExistingVotes(verifiedEmail)
       
       // Close the organizer auth modal
       setShowOrganizerAuthModal(false)
@@ -1347,7 +1357,8 @@ export default function PollPage() {
       )}
 
       {/* Voting Form - Reduced visual weight */}
-      {(!hasVoted || isEditingVotes) && poll && getPollStatus(poll) === 'active' ? (
+      {/* Hide voting form for organizers who have already voted */}
+      {!isOrganizer && (!hasVoted || isEditingVotes) && poll && getPollStatus(poll) === 'active' ? (
         <div className="bg-[#F3F6FB] rounded-lg border border-gray-200 p-6 mb-8">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-lg font-semibold text-gray-900">

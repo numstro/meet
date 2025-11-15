@@ -32,6 +32,8 @@ interface PollResponse {
   participant_email: string
   response: 'yes' | 'no' | 'maybe'
   comment?: string | null
+  is_active?: boolean | null
+  is_deleted?: boolean | null
 }
 
 interface PollSummary {
@@ -110,9 +112,19 @@ export default function PollPage() {
   // Organizer tools collapsed state
   const [isOrganizerToolsExpanded, setIsOrganizerToolsExpanded] = useState(false)
 
+  // Participant removal state
+  const [showLeavePollConfirm, setShowLeavePollConfirm] = useState(false)
+  const [showRemoveParticipantConfirm, setShowRemoveParticipantConfirm] = useState(false)
+  const [participantToRemove, setParticipantToRemove] = useState<{ email: string; name: string } | null>(null)
+  const [isLeavingPoll, setIsLeavingPoll] = useState(false)
+  const [isRemovingParticipant, setIsRemovingParticipant] = useState(false)
+
   // Determine if user is organizer (via admin token in URL or verified creator email)
   const adminTokenFromUrl = searchParams.get('admin')
   const isOrganizer = Boolean(adminTokenFromUrl || verifiedCreatorEmail)
+  
+  // Check if current user is a participant (has voted)
+  const isCurrentUserParticipant = hasVoted && existingVoterEmail && existingVoterEmail.toLowerCase() === participantEmail.toLowerCase()
 
   // Time bucket options
   const timeBuckets = [
@@ -234,10 +246,13 @@ export default function PollPage() {
       setOptions(sortedOptions)
 
       // Load responses (explicitly include comment field if it exists)
+      // Filter out soft-deleted participants: is_active = true AND is_deleted = false
       const { data: responsesData, error: responsesError } = await supabase
         .from('poll_responses')
-        .select('id, poll_id, option_id, participant_name, participant_email, response, comment')
+        .select('id, poll_id, option_id, participant_name, participant_email, response, comment, is_active, is_deleted')
         .eq('poll_id', pollId)
+        .eq('is_active', true)
+        .eq('is_deleted', false)
 
       if (responsesError) throw responsesError
       setResponses(responsesData || [])
@@ -323,9 +338,11 @@ export default function PollPage() {
     try {
       const { data: existingResponses, error } = await supabase
         .from('poll_responses')
-        .select('id, poll_id, option_id, participant_name, participant_email, response, comment')
+        .select('id, poll_id, option_id, participant_name, participant_email, response, comment, is_active, is_deleted')
         .eq('poll_id', pollId)
         .eq('participant_email', email)
+        .eq('is_active', true)
+        .eq('is_deleted', false)
 
       if (error) throw error
 
@@ -402,6 +419,7 @@ export default function PollPage() {
     try {
       // Use upsert (insert or update) to handle existing responses
       // Note: comment field is optional - will be ignored if column doesn't exist in DB
+      // Set is_active = true and is_deleted = false when creating/updating votes
       const responsesToUpsert = Object.entries(userResponses).map(([optionId, response]) => {
         const commentValue = userComments[optionId]?.trim() || null
         const responseData: any = {
@@ -409,7 +427,9 @@ export default function PollPage() {
           option_id: optionId,
           participant_name: participantName,
           participant_email: participantEmail,
-          response
+          response,
+          is_active: true,
+          is_deleted: false
         }
         // Only include comment if it has a value (gracefully handle missing DB column)
         if (commentValue) {
@@ -821,6 +841,93 @@ export default function PollPage() {
     }
   }
 
+  // Handle participant leaving poll (self-removal)
+  const leavePoll = async () => {
+    if (!poll || !existingVoterEmail) {
+      setErrorMessage('Please verify your email first')
+      setShowErrorModal(true)
+      return
+    }
+
+    setIsLeavingPoll(true)
+    setError('')
+
+    try {
+      const response = await fetch('/api/leave-poll', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          pollId: poll.id,
+          participantEmail: existingVoterEmail
+        })
+      })
+
+      const result = await response.json()
+
+      if (response.ok) {
+        // Reload poll data to reflect the change
+        await loadPollData()
+        // Clear participant state
+        setHasVoted(false)
+        setExistingVoterEmail('')
+        setParticipantEmail('')
+        setParticipantName('')
+        setUserResponses({})
+        setUserComments({})
+        setShowLeavePollConfirm(false)
+      } else {
+        setErrorMessage(result.error || 'Failed to leave poll')
+        setShowErrorModal(true)
+      }
+    } catch (err: any) {
+      setErrorMessage(err.message || 'Something went wrong')
+      setShowErrorModal(true)
+    } finally {
+      setIsLeavingPoll(false)
+    }
+  }
+
+  // Handle organizer removing participant
+  const removeParticipant = async () => {
+    if (!poll || !verifiedCreatorEmail || !participantToRemove) {
+      setErrorMessage('Please verify your creator email first')
+      setShowErrorModal(true)
+      return
+    }
+
+    setIsRemovingParticipant(true)
+    setError('')
+
+    try {
+      const response = await fetch('/api/remove-participant', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          pollId: poll.id,
+          participantEmail: participantToRemove.email,
+          creatorEmail: verifiedCreatorEmail
+        })
+      })
+
+      const result = await response.json()
+
+      if (response.ok) {
+        // Reload poll data to reflect the change
+        await loadPollData()
+        setShowRemoveParticipantConfirm(false)
+        setParticipantToRemove(null)
+      } else {
+        setErrorMessage(result.error || 'Failed to remove participant')
+        setShowErrorModal(true)
+      }
+    } catch (err: any) {
+      setErrorMessage(err.message || 'Something went wrong')
+      setShowErrorModal(true)
+    } finally {
+      setIsRemovingParticipant(false)
+    }
+  }
+
   // Show error modal if there's an error (must be before any returns to follow Rules of Hooks)
   useEffect(() => {
     if (error && !showErrorModal) {
@@ -1012,11 +1119,42 @@ export default function PollPage() {
                     const participant = participantResponses[0] // Get first response (all should have same name)
                     const displayName = participant?.participant_name?.trim() || email.split('@')[0] || email
                     
+                    const isCurrentUser = existingVoterEmail && email.toLowerCase() === existingVoterEmail.toLowerCase()
+                    
                     return (
                       <tr key={email} className="hover:bg-gray-50">
                         <td className="p-3 border-r border-b border-gray-200">
-                          <div className="font-medium truncate" style={{ lineHeight: '1.5' }}>{displayName}</div>
-                          <div className="text-xs text-gray-500 truncate mt-1">{email}</div>
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex-1 min-w-0">
+                              <div className="font-medium truncate" style={{ lineHeight: '1.5' }}>{displayName}</div>
+                              <div className="text-xs text-gray-500 truncate mt-1">{email}</div>
+                            </div>
+                            <div className="flex flex-col gap-1 items-end">
+                              {/* Leave this poll button - for participants viewing their own row */}
+                              {isCurrentUser && !isOrganizer && (
+                                <button
+                                  onClick={() => setShowLeavePollConfirm(true)}
+                                  className="text-xs text-gray-600 hover:text-red-600 px-2 py-1 rounded hover:bg-red-50 transition-colors"
+                                  title="Leave this poll"
+                                >
+                                  Leave
+                                </button>
+                              )}
+                              {/* Remove participant button - for organizers on any row */}
+                              {isOrganizer && email.toLowerCase() !== poll?.creator_email.toLowerCase() && (
+                                <button
+                                  onClick={() => {
+                                    setParticipantToRemove({ email, name: displayName })
+                                    setShowRemoveParticipantConfirm(true)
+                                  }}
+                                  className="text-xs text-red-600 hover:text-red-700 px-2 py-1 rounded hover:bg-red-50 transition-colors"
+                                  title="Remove participant"
+                                >
+                                  Remove
+                                </button>
+                              )}
+                            </div>
+                          </div>
                         </td>
                         {options.map((option) => {
                           const response = responses.find(r => 
@@ -1959,6 +2097,91 @@ export default function PollPage() {
                     {isVerifyingEmail ? 'Verifying...' : 'Unlock'}
                   </button>
                 </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Leave Poll Confirmation Modal */}
+      {showLeavePollConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-semibold text-gray-900">Leave This Poll</h3>
+                <button
+                  onClick={() => setShowLeavePollConfirm(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  ✕
+                </button>
+              </div>
+              <p className="text-gray-600 mb-4">
+                Are you sure you want to leave this poll? Your votes will be hidden from the results, but they will be preserved for audit purposes.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowLeavePollConfirm(false)}
+                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-colors"
+                  disabled={isLeavingPoll}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={leavePoll}
+                  disabled={isLeavingPoll}
+                  className="flex-1 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  {isLeavingPoll ? 'Leaving...' : 'Leave Poll'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Remove Participant Confirmation Modal */}
+      {showRemoveParticipantConfirm && participantToRemove && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-semibold text-gray-900">Remove Participant</h3>
+                <button
+                  onClick={() => {
+                    setShowRemoveParticipantConfirm(false)
+                    setParticipantToRemove(null)
+                  }}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  ✕
+                </button>
+              </div>
+              <p className="text-gray-600 mb-4">
+                Are you sure you want to remove <strong>{participantToRemove.name}</strong> ({participantToRemove.email}) from this poll?
+              </p>
+              <p className="text-sm text-gray-500 mb-4">
+                Their votes will be hidden from the results and excluded from vote counts, but will be preserved for audit purposes.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => {
+                    setShowRemoveParticipantConfirm(false)
+                    setParticipantToRemove(null)
+                  }}
+                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-colors"
+                  disabled={isRemovingParticipant}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={removeParticipant}
+                  disabled={isRemovingParticipant}
+                  className="flex-1 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  {isRemovingParticipant ? 'Removing...' : 'Remove Participant'}
+                </button>
               </div>
             </div>
           </div>

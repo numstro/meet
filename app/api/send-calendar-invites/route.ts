@@ -137,12 +137,15 @@ export async function POST(request: NextRequest) {
     }
 
     // Get all voters who voted "yes" or "maybe" for this option
+    // Filter out soft-deleted participants: is_active = true AND is_deleted = false
     const { data: votes, error: votesError } = await supabase
       .from('poll_responses')
       .select('participant_email, participant_name')
       .eq('poll_id', pollId)
       .eq('option_id', optionId)
       .in('response', ['yes', 'maybe'])
+      .eq('is_active', true)
+      .eq('is_deleted', false)
 
     if (votesError) {
       return NextResponse.json(

@@ -97,6 +97,7 @@ export default function PollPage() {
   // Creator email verification state
   const [verifiedCreatorEmail, setVerifiedCreatorEmail] = useState<string | null>(null)
   const [showCreatorEmailModal, setShowCreatorEmailModal] = useState(false)
+  const [showOrganizerAuthModal, setShowOrganizerAuthModal] = useState(false)
   const [creatorEmailInput, setCreatorEmailInput] = useState('')
   const [isVerifyingEmail, setIsVerifyingEmail] = useState(false)
   const [emailVerificationError, setEmailVerificationError] = useState('')
@@ -688,6 +689,9 @@ export default function PollPage() {
       if (typeof window !== 'undefined' && poll) {
         localStorage.setItem(`verified_creator_${poll.id}`, verifiedEmail)
       }
+      
+      // Close the organizer auth modal
+      setShowOrganizerAuthModal(false)
     } else {
       setEmailVerificationError('This poll was not created with that email address.')
     }
@@ -852,59 +856,18 @@ export default function PollPage() {
             <span>Organizer access enabled</span>
           </div>
         )}
-      </div>
-
-      {/* Organizer Authentication Banner - Only for non-organizers */}
-      {!isOrganizer && poll && getPollStatus(poll) === 'active' && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-          <div className="flex items-start gap-3">
-            <span className="text-2xl">🔐</span>
-            <div className="flex-1">
-              <h3 className="text-blue-900 font-semibold mb-1">Are you the organizer of this poll?</h3>
-              <p className="text-sm text-slate-600 mb-4">
-                Unlock organizer tools like sending invites or deleting this poll.
-              </p>
-              <div className="space-y-3">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Enter organizer email:
-                  </label>
-                  <div className="flex gap-2">
-                    <input
-                      type="email"
-                      value={creatorEmailInput}
-                      onChange={(e) => {
-                        setCreatorEmailInput(e.target.value)
-                        setEmailVerificationError('')
-                      }}
-                      onKeyDown={async (e) => {
-                        if (e.key === 'Enter' && creatorEmailInput.trim()) {
-                          await handleOrganizerEmailVerification()
-                        }
-                      }}
-                      className="flex-1 px-3 py-2 bg-white text-gray-900 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="organizer@email.com"
-                    />
-                    <button
-                      onClick={handleOrganizerEmailVerification}
-                      disabled={isVerifyingEmail || !creatorEmailInput.trim()}
-                      className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
-                    >
-                      {isVerifyingEmail ? 'Verifying...' : 'Unlock'}
-                    </button>
-                  </div>
-                  {emailVerificationError && (
-                    <p className="mt-2 text-sm text-red-600">{emailVerificationError}</p>
-                  )}
-                </div>
-                <div className="text-xs text-slate-500">
-                  Or paste your organizer link if you have one.
-                </div>
-              </div>
-            </div>
+        {/* Small organizer link for non-organizers */}
+        {!isOrganizer && poll && getPollStatus(poll) === 'active' && (
+          <div className="mt-2">
+            <button
+              onClick={() => setShowOrganizerAuthModal(true)}
+              className="text-sm text-blue-600 hover:text-blue-800 hover:underline"
+            >
+              Are you the organizer? Unlock tools
+            </button>
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Share This Poll - Moved to top */}
       {poll && getPollStatus(poll) === 'active' && (
@@ -1916,6 +1879,81 @@ export default function PollPage() {
                 >
                   {isVerifyingEmail ? 'Verifying...' : 'Verify'}
                 </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Organizer Authentication Modal */}
+      {showOrganizerAuthModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-semibold text-gray-900">Unlock Organizer Tools</h3>
+                <button
+                  onClick={() => {
+                    setShowOrganizerAuthModal(false)
+                    setCreatorEmailInput('')
+                    setEmailVerificationError('')
+                  }}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <p className="text-sm text-slate-600 mb-4">
+                Enter the email address you used to create this poll to unlock organizer tools like sending invites or deleting the poll.
+              </p>
+
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Organizer Email:
+                  </label>
+                  <input
+                    type="email"
+                    value={creatorEmailInput}
+                    onChange={(e) => {
+                      setCreatorEmailInput(e.target.value)
+                      setEmailVerificationError('')
+                    }}
+                    onKeyDown={async (e) => {
+                      if (e.key === 'Enter' && creatorEmailInput.trim()) {
+                        await handleOrganizerEmailVerification()
+                      }
+                    }}
+                    className="w-full px-3 py-2 bg-white text-gray-900 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="organizer@email.com"
+                    autoFocus
+                  />
+                  {emailVerificationError && (
+                    <p className="mt-2 text-sm text-red-600">{emailVerificationError}</p>
+                  )}
+                </div>
+
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => {
+                      setShowOrganizerAuthModal(false)
+                      setCreatorEmailInput('')
+                      setEmailVerificationError('')
+                    }}
+                    className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-colors"
+                    disabled={isVerifyingEmail}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleOrganizerEmailVerification}
+                    disabled={isVerifyingEmail || !creatorEmailInput.trim()}
+                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    {isVerifyingEmail ? 'Verifying...' : 'Unlock'}
+                  </button>
+                </div>
               </div>
             </div>
           </div>

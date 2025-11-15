@@ -1357,8 +1357,8 @@ export default function PollPage() {
       )}
 
       {/* Voting Form - Reduced visual weight */}
-      {/* Hide voting form for organizers who have already voted */}
-      {!isOrganizer && (!hasVoted || isEditingVotes) && poll && getPollStatus(poll) === 'active' ? (
+      {/* Hide voting form for organizers who have already voted (but allow them to vote initially) */}
+      {(!hasVoted || isEditingVotes) && !(isOrganizer && hasVoted) && poll && getPollStatus(poll) === 'active' ? (
         <div className="bg-[#F3F6FB] rounded-lg border border-gray-200 p-6 mb-8">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-lg font-semibold text-gray-900">

@@ -102,6 +102,12 @@ export default function PollPage() {
   const [emailVerificationError, setEmailVerificationError] = useState('')
   const [pendingCreatorAction, setPendingCreatorAction] = useState<'invites' | 'delete' | 'share' | null>(null)
 
+  // Track which options have had invites sent
+  const [optionsWithInvites, setOptionsWithInvites] = useState<Set<string>>(new Set())
+
+  // Organizer tools collapsed state
+  const [isOrganizerToolsExpanded, setIsOrganizerToolsExpanded] = useState(false)
+
   // Time bucket options
   const timeBuckets = [
     { value: 'morning', label: '🌅 Morning', description: '8 AM - 12 PM' },
@@ -222,6 +228,34 @@ export default function PollPage() {
 
       // Calculate summary manually (simpler for time buckets)
       calculateSummary(optionsData || [], responsesData || [])
+
+      // Load which options have had invites sent
+      if (pollData.creator_email) {
+        const { data: invitesData, error: invitesError } = await supabase
+          .from('rate_limits')
+          .select('option_id')
+          .eq('creator_email', pollData.creator_email)
+          .not('option_id', 'is', null)
+
+        if (!invitesError && invitesData) {
+          const optionIdsWithInvites = new Set(
+            invitesData
+              .map((r: any) => r.option_id)
+              .filter((id: string) => id !== null)
+          )
+          setOptionsWithInvites(optionIdsWithInvites)
+        }
+      }
+
+      // Check localStorage for verified creator email
+      if (typeof window !== 'undefined') {
+        const storedVerifiedEmail = localStorage.getItem(`verified_creator_${pollId}`)
+        if (storedVerifiedEmail && pollData.creator_email && 
+            storedVerifiedEmail.toLowerCase() === pollData.creator_email.toLowerCase()) {
+          setVerifiedCreatorEmail(storedVerifiedEmail)
+          setIsOrganizerToolsExpanded(true)
+        }
+      }
 
     } catch (err: any) {
       setError(err.message || 'Failed to load poll')
@@ -570,7 +604,7 @@ export default function PollPage() {
     setEmailVerificationError('')
   }
 
-  // Submit email verification
+  // Submit email verification (for modal)
   const submitEmailVerification = async () => {
     if (!poll || !creatorEmailInput.trim()) {
       setEmailVerificationError('Please enter your email address')
@@ -583,17 +617,26 @@ export default function PollPage() {
     const isValid = await verifyCreatorEmail(creatorEmailInput.trim())
     
     if (isValid) {
-      setVerifiedCreatorEmail(creatorEmailInput.toLowerCase().trim())
+      const verifiedEmail = creatorEmailInput.toLowerCase().trim()
+      setVerifiedCreatorEmail(verifiedEmail)
       setShowCreatorEmailModal(false)
       setCreatorEmailInput('')
+      
+      // Save to localStorage for future visits
+      if (typeof window !== 'undefined' && poll) {
+        localStorage.setItem(`verified_creator_${poll.id}`, verifiedEmail)
+      }
+      
+      // Expand organizer tools if they were collapsed
+      setIsOrganizerToolsExpanded(true)
       
       // Proceed with the pending action
       if (pendingCreatorAction === 'invites') {
         setShowCalendarModal(true)
-        setCreatorEmailForInvite(creatorEmailInput.toLowerCase().trim())
+        setCreatorEmailForInvite(verifiedEmail)
       } else if (pendingCreatorAction === 'delete') {
         setShowDeleteConfirm(true)
-        setDeleteEmail(creatorEmailInput.toLowerCase().trim())
+        setDeleteEmail(verifiedEmail)
       } else if (pendingCreatorAction === 'share') {
         // Share is always available
         if (typeof window !== 'undefined') {
@@ -602,6 +645,34 @@ export default function PollPage() {
       }
       
       setPendingCreatorAction(null)
+    } else {
+      setEmailVerificationError('This poll was not created with that email address.')
+    }
+    
+    setIsVerifyingEmail(false)
+  }
+
+  // Handle email verification in collapsed organizer tools section
+  const handleOrganizerEmailVerification = async () => {
+    if (!poll || !creatorEmailInput.trim()) {
+      setEmailVerificationError('Please enter your email address')
+      return
+    }
+
+    setIsVerifyingEmail(true)
+    setEmailVerificationError('')
+
+    const isValid = await verifyCreatorEmail(creatorEmailInput.trim())
+    
+    if (isValid) {
+      const verifiedEmail = creatorEmailInput.toLowerCase().trim()
+      setVerifiedCreatorEmail(verifiedEmail)
+      setCreatorEmailInput('')
+      
+      // Save to localStorage for future visits
+      if (typeof window !== 'undefined' && poll) {
+        localStorage.setItem(`verified_creator_${poll.id}`, verifiedEmail)
+      }
     } else {
       setEmailVerificationError('This poll was not created with that email address.')
     }
@@ -649,6 +720,10 @@ export default function PollPage() {
 
       if (response.ok) {
         setInviteResult({ success: true, message: result.message })
+        // Add the option to optionsWithInvites
+        if (selectedOptionId) {
+          setOptionsWithInvites(prev => new Set([...prev, selectedOptionId]))
+        }
         // Close modal after 2 seconds
         setTimeout(() => {
           setShowCalendarModal(false)
@@ -950,6 +1025,30 @@ export default function PollPage() {
                 </tbody>
               </table>
             </div>
+            
+            {/* Invitation Status - Show which options have had invites sent */}
+            {optionsWithInvites.size > 0 && (
+              <div className="mt-4 pt-4 border-t border-gray-200">
+                <div className="text-sm text-gray-600">
+                  <span className="font-medium">📅 Invitations sent for:</span>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {options
+                      .filter(opt => optionsWithInvites.has(opt.id))
+                      .map(option => {
+                        const dateStr = format(new Date(option.option_date + 'T00:00:00'), 'MMM d')
+                        const timeLabel = option.option_text === 'morning' ? '🌅 Morning' :
+                                         option.option_text === 'afternoon' ? '☀️ Afternoon' :
+                                         '🌙 Evening'
+                        return (
+                          <span key={option.id} className="inline-flex items-center px-2 py-1 bg-green-50 text-green-700 rounded-md text-xs">
+                            {dateStr} {timeLabel}
+                          </span>
+                        )
+                      })}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -1222,38 +1321,6 @@ export default function PollPage() {
         </div>
       </div>
 
-      {/* Send Calendar Invites - Creator only, requires email verification */}
-      {summary.length > 0 && poll && getPollStatus(poll) === 'active' && (
-        <div className="bg-white rounded-lg shadow p-6 mb-8">
-          <h2 className="text-xl font-semibold mb-4">📅 Send Calendar Invites</h2>
-          {verifiedCreatorEmail ? (
-            <>
-              <p className="text-gray-600 mb-4">
-                Send calendar invites to all participants who voted "yes" or "maybe" for a selected time option.
-              </p>
-              <button
-                onClick={() => setShowCalendarModal(true)}
-                className="w-full px-4 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors font-medium"
-              >
-                📅 Send Calendar Invites
-              </button>
-            </>
-          ) : (
-            <>
-              <p className="text-gray-600 mb-4">
-                Enter your creator email to send calendar invites to all participants who voted "yes" or "maybe" for a selected time option.
-              </p>
-              <button
-                onClick={() => handleCreatorAction('invites')}
-                className="w-full px-4 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors font-medium"
-              >
-                📅 Send Calendar Invites
-              </button>
-            </>
-          )}
-        </div>
-      )}
-
       {/* Propose New Time */}
       {poll && getPollStatus(poll) === 'active' && (
       <div className="bg-white rounded-lg shadow p-6 mb-8">
@@ -1380,34 +1447,118 @@ export default function PollPage() {
       </div>
       )}
 
-      {/* Delete Poll - Creator only, requires email verification */}
+      {/* Organizer Tools - Collapsed section at the bottom */}
       {poll && getPollStatus(poll) === 'active' && (
-        <div className="bg-white rounded-lg shadow p-6 mb-8 border-l-4 border-red-500">
-          <h2 className="text-xl font-semibold mb-4 text-red-600">🗑️ Manage Poll</h2>
-          {verifiedCreatorEmail ? (
-            <>
-              <p className="text-gray-600 mb-4">
-                Permanently delete this poll. This action cannot be undone.
-              </p>
-              <button
-                onClick={() => setShowDeleteConfirm(true)}
-                className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
-              >
-                Delete Poll
-              </button>
-            </>
-          ) : (
-            <>
-              <p className="text-gray-600 mb-4">
-                Enter your creator email to manage this poll. Permanently delete this poll. This action cannot be undone.
-              </p>
-              <button
-                onClick={() => handleCreatorAction('delete')}
-                className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
-              >
-                Delete Poll
-              </button>
-            </>
+        <div className="bg-white rounded-lg shadow border border-gray-200 mb-8">
+          {/* Collapsed Header */}
+          <button
+            onClick={() => setIsOrganizerToolsExpanded(!isOrganizerToolsExpanded)}
+            className="w-full px-6 py-4 flex items-center justify-between hover:bg-gray-50 transition-colors"
+          >
+            <div className="text-left">
+              <h3 className="text-lg font-semibold text-gray-900">Organizer tools</h3>
+              <p className="text-sm text-gray-600 mt-1">Send calendar invites or delete this poll.</p>
+            </div>
+            <span className="text-gray-400 text-xl">
+              {isOrganizerToolsExpanded ? '▼' : '▶'}
+            </span>
+          </button>
+
+          {/* Expanded Content */}
+          {isOrganizerToolsExpanded && (
+            <div className="px-6 pb-6 border-t border-gray-200">
+              {/* Email Verification (if not verified) */}
+              {!verifiedCreatorEmail ? (
+                <div className="mt-4 mb-6">
+                  <p className="text-sm text-gray-600 mb-3">
+                    For the person who created this poll.
+                  </p>
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Creator Email:
+                      </label>
+                      <input
+                        type="email"
+                        value={creatorEmailInput}
+                        onChange={(e) => {
+                          setCreatorEmailInput(e.target.value)
+                          setEmailVerificationError('')
+                        }}
+                        onKeyDown={async (e) => {
+                          if (e.key === 'Enter' && creatorEmailInput.trim()) {
+                            await handleOrganizerEmailVerification()
+                          }
+                        }}
+                        className="w-full px-3 py-2 bg-white text-gray-900 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="your@email.com"
+                      />
+                      {emailVerificationError && (
+                        <p className="mt-2 text-sm text-red-600">{emailVerificationError}</p>
+                      )}
+                    </div>
+                    <button
+                      onClick={handleOrganizerEmailVerification}
+                      disabled={isVerifyingEmail || !creatorEmailInput.trim()}
+                      className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                      {isVerifyingEmail ? 'Verifying...' : 'Confirm'}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="mt-4 space-y-6">
+                  {/* Send Calendar Invites */}
+                  {summary.length > 0 && (
+                    <div>
+                      <h4 className="text-md font-semibold text-gray-900 mb-2">📅 Send Calendar Invites</h4>
+                      <p className="text-sm text-gray-600 mb-4">
+                        Send calendar invites to all participants who voted "yes" or "maybe" for a selected time option.
+                      </p>
+                      {(() => {
+                        const totalParticipants = new Set(responses.map(r => r.participant_email)).size
+                        const bestOptions = getBestOptions()
+                        const hasWinningOption = bestOptions.length > 0
+                        const canSendInvites = totalParticipants >= 1 && hasWinningOption
+                        
+                        return (
+                          <>
+                            {!canSendInvites && (
+                              <p className="text-xs text-gray-500 mb-3">
+                                {totalParticipants === 0 
+                                  ? 'Select a time option above to enable sending invites.'
+                                  : 'Select a time option above to enable sending invites.'}
+                              </p>
+                            )}
+                            <button
+                              onClick={() => setShowCalendarModal(true)}
+                              disabled={!canSendInvites}
+                              className="w-full px-4 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
+                            >
+                              📅 Send Calendar Invites
+                            </button>
+                          </>
+                        )
+                      })()}
+                    </div>
+                  )}
+
+                  {/* Delete Poll */}
+                  <div className="pt-4 border-t border-gray-200">
+                    <h4 className="text-md font-semibold text-red-600 mb-2">🗑️ Delete Poll</h4>
+                    <p className="text-sm text-gray-600 mb-4">
+                      Permanently delete this poll. This action cannot be undone.
+                    </p>
+                    <button
+                      onClick={() => setShowDeleteConfirm(true)}
+                      className="w-full px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
+                    >
+                      Delete Poll
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
           )}
         </div>
       )}

@@ -608,6 +608,7 @@ END:VTIMEZONE`,
     
     // Record rate limit usage (only if emails were successfully sent)
     // Track exact recipient count for accurate monitoring
+    // Also track which option_id had invites sent
     if (successCount > 0) {
       try {
         await supabase
@@ -617,7 +618,8 @@ END:VTIMEZONE`,
             creator_email: creatorEmail,
             creator_name: poll.creator_name,
             created_at: new Date().toISOString(),
-            recipient_count: uniqueVoters.length // Track exact number of emails sent
+            recipient_count: uniqueVoters.length, // Track exact number of emails sent
+            option_id: optionId // Track which option had invites sent
           }])
       } catch (rateLimitError) {
         // Log but don't fail the request if rate limit recording fails

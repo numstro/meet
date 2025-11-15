@@ -97,6 +97,7 @@ export default function MonitoringDashboard() {
       const now = new Date()
       const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000)
       const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+      const yesterdayUTC = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
 
       // Get overall poll statistics
       const { data: allPolls } = await supabase
@@ -136,11 +137,7 @@ export default function MonitoringDashboard() {
         .select('created_at, ip_address, recipient_count')
         .not('creator_email', 'is', null) // Calendar invites have creator_email
 
-      // Use RPC or raw SQL to get accurate 24h data (avoids timezone issues)
-      // Alternative: Use the same logic as SQL - NOW() - INTERVAL '24 hours'
-      // For now, ensure we're using UTC timezone consistently
-      const yesterdayUTC = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
-      
+      // Get invites from last 24 hours
       const { data: invitesLast24h, error: invitesError } = await supabase
         .from('rate_limits')
         .select('created_at, ip_address, recipient_count, creator_email')

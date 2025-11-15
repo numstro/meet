@@ -14,6 +14,7 @@ interface Poll {
   location?: string
   deadline?: string
   deleted_at?: string | null
+  creator_admin_key?: string | null
 }
 
 interface PollOption {
@@ -94,6 +95,9 @@ export default function PollPage() {
   const [customStartTime, setCustomStartTime] = useState('')
   const [customEndTime, setCustomEndTime] = useState('')
 
+  // Creator mode state - check if user has admin key in URL
+  const [isCreatorMode, setIsCreatorMode] = useState(false)
+
   // Time bucket options
   const timeBuckets = [
     { value: 'morning', label: '🌅 Morning', description: '8 AM - 12 PM' },
@@ -118,6 +122,17 @@ export default function PollPage() {
     }
   }, [pollId])
 
+  // Check if user is in creator mode (has admin key in URL)
+  useEffect(() => {
+    const adminKey = searchParams.get('admin')
+    if (adminKey && poll) {
+      // Verify admin key matches poll's creator_admin_key
+      if (poll.creator_admin_key === adminKey) {
+        setIsCreatorMode(true)
+      }
+    }
+  }, [searchParams, poll])
+
   // Auto-populate creator info from URL params (only when coming from poll creation)
   useEffect(() => {
     const creatorName = searchParams.get('creatorName')
@@ -130,6 +145,7 @@ export default function PollPage() {
       setCreatorEmailForInvite(creatorEmail)
       
       // Clear the URL params after setting them (optional, for cleaner URLs)
+      // But keep the admin key if present
       const url = new URL(window.location.href)
       url.searchParams.delete('creatorName')
       url.searchParams.delete('creatorEmail')
@@ -659,12 +675,15 @@ export default function PollPage() {
       <div className="mb-8">
         <div className="flex justify-between items-start mb-2">
           <h1 className="text-3xl font-bold text-gray-900">{poll.title}</h1>
-          <button
-            onClick={() => setShowDeleteConfirm(true)}
-            className="text-red-600 hover:text-red-800 text-sm font-medium px-3 py-1 rounded border border-red-200 hover:border-red-300 transition-colors"
-          >
-            🗑️ Delete Poll
-          </button>
+          {/* Delete button only shown to creators */}
+          {isCreatorMode && (
+            <button
+              onClick={() => setShowDeleteConfirm(true)}
+              className="text-red-600 hover:text-red-800 text-sm font-medium px-3 py-1 rounded border border-red-200 hover:border-red-300 transition-colors"
+            >
+              🗑️ Delete Poll
+            </button>
+          )}
         </div>
         {poll.description && (
           <p className="text-gray-600 mb-4">{poll.description}</p>
@@ -675,38 +694,6 @@ export default function PollPage() {
           {poll.deadline && (
             <span>⏰ Respond by {format(new Date(poll.deadline + 'T00:00:00'), 'MMM d, yyyy')}</span>
           )}
-        </div>
-      </div>
-
-      {/* Share Poll Section */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-8">
-        <h3 className="text-blue-900 font-semibold mb-2">📤 Share This Poll</h3>
-        <p className="text-blue-800 text-sm mb-3">Send this link to participants so they can vote:</p>
-        <div className="flex gap-2">
-          <input
-            type="text"
-            value={typeof window !== 'undefined' ? window.location.href : ''}
-            readOnly
-            className="flex-1 px-3 py-2 bg-white border border-blue-300 rounded-md font-mono text-sm"
-          />
-          <button
-            type="button"
-            onClick={() => {
-              if (typeof window !== 'undefined') {
-                navigator.clipboard.writeText(window.location.href)
-                // Simple feedback - you could add a toast here
-                const button = event?.target as HTMLButtonElement
-                const originalText = button.textContent
-                button.textContent = '✅ Copied!'
-                setTimeout(() => {
-                  button.textContent = originalText
-                }, 2000)
-              }
-            }}
-            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors whitespace-nowrap"
-          >
-            📋 Copy Link
-          </button>
         </div>
       </div>
 
@@ -740,7 +727,7 @@ export default function PollPage() {
         </div>
       )}
 
-      {/* Doodle-style Grid Results */}
+      {/* Doodle-style Grid Results - HERO (first visible content) */}
       <div className="bg-white rounded-lg shadow p-6 mb-8">
         <h2 className="text-xl font-semibold mb-4">📊 Voting Results</h2>
         
@@ -909,45 +896,39 @@ export default function PollPage() {
             </div>
           </div>
         )}
-        
-        {/* Send Calendar Invites Button - Full Width, Centered */}
-        {summary.length > 0 ? (
-          <div className="mt-6">
-            <button
-              onClick={() => setShowCalendarModal(true)}
-              className="w-full px-4 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors font-medium"
-            >
-              📅 Send Calendar Invites
-            </button>
-          </div>
-        ) : null}
       </div>
 
-      {/* Check Previous Votes */}
-      {!hasVoted && !isEditingVotes && poll && getPollStatus(poll) === 'active' && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-8">
-          <h2 className="text-lg font-semibold mb-4">🔍 Already Voted?</h2>
-          <p className="text-blue-800 mb-4">
-            Enter your email to check if you've already voted and edit your responses.
-          </p>
-          <div className="flex space-x-3">
-            <input
-              type="email"
-              placeholder="Enter your email address"
-              value={existingVoterEmail}
-              onChange={(e) => setExistingVoterEmail(e.target.value)}
-              className="flex-1 px-3 py-2 bg-white text-gray-900 border border-blue-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-            <button
-              onClick={() => checkExistingVotes(existingVoterEmail)}
-              disabled={!existingVoterEmail}
-              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Check Votes
-            </button>
-          </div>
+      {/* Share Poll Section - Below grid, visible to all */}
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-8">
+        <h3 className="text-blue-900 font-semibold mb-2">📤 Share This Poll</h3>
+        <p className="text-blue-800 text-sm mb-3">Send this link to participants so they can vote:</p>
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={typeof window !== 'undefined' ? window.location.href : ''}
+            readOnly
+            className="flex-1 px-3 py-2 bg-white border border-blue-300 rounded-md font-mono text-sm"
+          />
+          <button
+            type="button"
+            onClick={() => {
+              if (typeof window !== 'undefined') {
+                navigator.clipboard.writeText(window.location.href)
+                // Simple feedback - you could add a toast here
+                const button = event?.target as HTMLButtonElement
+                const originalText = button.textContent
+                button.textContent = '✅ Copied!'
+                setTimeout(() => {
+                  button.textContent = originalText
+                }, 2000)
+              }
+            }}
+            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors whitespace-nowrap"
+          >
+            📋 Copy Link
+          </button>
         </div>
-      )}
+      </div>
 
       {/* Voting Form */}
       {(!hasVoted || isEditingVotes) && poll && getPollStatus(poll) === 'active' ? (
@@ -1071,7 +1052,7 @@ export default function PollPage() {
                               
                               {/* Comment button - opens popover */}
                               {currentResponse && (
-                                <div className="mt-1 relative">
+                                <div className="mt-1">
                                   <button
                                     type="button"
                                     onClick={() => toggleCommentField(option.id)}
@@ -1086,16 +1067,16 @@ export default function PollPage() {
                                     <span className="ml-1">{hasComment ? 'Edit comment' : 'Add comment'}</span>
                                   </button>
                                   
-                                  {/* Popover for comment - positioned above if near bottom of viewport */}
+                                  {/* Popover for comment - fixed positioning to prevent layout shift */}
                                   {isCommentExpanded && (
-                                    <div className="absolute left-1/2 bottom-full mb-2 transform -translate-x-1/2 z-50 w-64">
-                                      <div className="bg-white border border-gray-300 rounded-lg shadow-lg p-3">
+                                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50" onClick={() => toggleCommentField(option.id)}>
+                                      <div className="bg-white border border-gray-300 rounded-lg shadow-lg p-4 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
                                         <div className="flex justify-between items-center mb-2">
-                                          <label className="text-xs font-medium text-gray-700">Add a comment (optional)</label>
+                                          <label className="text-sm font-medium text-gray-700">Add a comment (optional)</label>
                                           <button
                                             type="button"
                                             onClick={() => toggleCommentField(option.id)}
-                                            className="text-gray-400 hover:text-gray-600 text-sm"
+                                            className="text-gray-400 hover:text-gray-600 text-lg"
                                           >
                                             ✕
                                           </button>
@@ -1107,6 +1088,7 @@ export default function PollPage() {
                                           maxLength={200}
                                           rows={3}
                                           className="w-full px-3 py-2 text-sm bg-white text-gray-900 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                                          autoFocus
                                         />
                                         <div className="flex justify-between items-center mt-2">
                                           <span className="text-xs text-gray-500">
@@ -1115,12 +1097,11 @@ export default function PollPage() {
                                           <button
                                             type="button"
                                             onClick={() => toggleCommentField(option.id)}
-                                            className="text-xs text-blue-600 hover:text-blue-800"
+                                            className="text-sm text-blue-600 hover:text-blue-800 font-medium"
                                           >
                                             Done
                                           </button>
                                         </div>
-                                        <div className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-2 h-2 bg-white border-r border-b border-gray-300 rotate-45"></div>
                                       </div>
                                     </div>
                                   )}
@@ -1167,6 +1148,82 @@ export default function PollPage() {
           </button>
         </div>
       ) : null}
+
+      {/* Already Voted? - Moved lower */}
+      {!hasVoted && !isEditingVotes && poll && getPollStatus(poll) === 'active' && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-8">
+          <h2 className="text-lg font-semibold mb-4">🔍 Already Voted?</h2>
+          <p className="text-blue-800 mb-4">
+            Enter your email to check if you've already voted and edit your responses.
+          </p>
+          <div className="flex space-x-3">
+            <input
+              type="email"
+              placeholder="Enter your email address"
+              value={existingVoterEmail}
+              onChange={(e) => setExistingVoterEmail(e.target.value)}
+              className="flex-1 px-3 py-2 bg-white text-gray-900 border border-blue-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <button
+              onClick={() => checkExistingVotes(existingVoterEmail)}
+              disabled={!existingVoterEmail}
+              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Check Votes
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Send Calendar Invites - Creator only, below voting */}
+      {isCreatorMode && summary.length > 0 && poll && getPollStatus(poll) === 'active' && (
+        <div className="bg-white rounded-lg shadow p-6 mb-8">
+          <h2 className="text-xl font-semibold mb-4">📅 Send Calendar Invites</h2>
+          <p className="text-gray-600 mb-4">
+            Send calendar invites to all participants who voted "yes" or "maybe" for a selected time option.
+          </p>
+          <button
+            onClick={() => setShowCalendarModal(true)}
+            className="w-full px-4 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors font-medium"
+          >
+            📅 Send Calendar Invites
+          </button>
+        </div>
+      )}
+
+      {/* Participants List */}
+      {responses.length > 0 && (
+        <div className="bg-white rounded-lg shadow p-6 mb-8">
+          <h2 className="text-xl font-semibold mb-4">👥 Participants</h2>
+          <div className="space-y-2">
+            {Array.from(new Set(responses.map(r => r.participant_email))).map(email => {
+              const participant = responses.find(r => r.participant_email === email)
+              return (
+                <div key={email} className="flex items-center space-x-2">
+                  <span className="font-medium">{participant?.participant_name}</span>
+                  <span className="text-gray-500 text-sm">({email})</span>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Delete Poll - Creator only, at bottom */}
+      {isCreatorMode && poll && getPollStatus(poll) === 'active' && (
+        <div className="bg-white rounded-lg shadow p-6 mb-8">
+          <h2 className="text-xl font-semibold mb-4 text-red-600">🗑️ Manage Poll</h2>
+          <p className="text-gray-600 mb-4">
+            Permanently delete this poll. This action cannot be undone.
+          </p>
+          <button
+            onClick={() => setShowDeleteConfirm(true)}
+            className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
+          >
+            Delete Poll
+          </button>
+        </div>
+      )}
 
       {/* Propose New Time */}
       {poll && getPollStatus(poll) === 'active' && (

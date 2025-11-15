@@ -600,26 +600,29 @@ export default function PollPage() {
   const handleCreatorAction = async (action: 'invites' | 'delete' | 'share') => {
     if (!poll) return
 
-    // If already verified, proceed
+    // Share is always available to everyone - no verification needed
+    if (action === 'share') {
+      if (typeof window !== 'undefined') {
+        navigator.clipboard.writeText(window.location.href)
+        // Show feedback
+        const button = document.querySelector('[data-share-button]') as HTMLButtonElement
+        if (button) {
+          const originalText = button.textContent
+          button.textContent = '✅ Copied!'
+          setTimeout(() => {
+            button.textContent = originalText
+          }, 2000)
+        }
+      }
+      return
+    }
+
+    // For invites and delete, require verification
     if (verifiedCreatorEmail) {
       if (action === 'invites') {
         setShowCalendarModal(true)
       } else if (action === 'delete') {
         setShowDeleteConfirm(true)
-      } else if (action === 'share') {
-        // Share is always available, just copy link
-        if (typeof window !== 'undefined') {
-          navigator.clipboard.writeText(window.location.href)
-          // Show feedback
-          const button = document.querySelector('[data-share-button]') as HTMLButtonElement
-          if (button) {
-            const originalText = button.textContent
-            button.textContent = '✅ Copied!'
-            setTimeout(() => {
-              button.textContent = originalText
-            }, 2000)
-          }
-        }
       }
       return
     }

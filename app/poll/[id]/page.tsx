@@ -735,10 +735,6 @@ export default function PollPage() {
           <p className="text-gray-500">No responses yet. Be the first to vote!</p>
         ) : (
           <div>
-            <div className="text-sm text-gray-600 mb-4">
-              {new Set(responses.map(r => r.participant_email)).size} participants
-            </div>
-            
             {/* Grid Table */}
               <div className="overflow-x-auto border border-gray-200 rounded-lg" style={{ overscrollBehavior: 'contain', height: 'fit-content' }}>
                 <table className="border-collapse m-0 w-full" style={{ tableLayout: 'auto', borderSpacing: 0 }}>
@@ -875,7 +871,7 @@ export default function PollPage() {
                                       {optionComments.map((c, idx) => (
                                         <div key={idx} className="border-t border-gray-700 pt-2 first:border-t-0 first:pt-0">
                                           <div className="font-medium">
-                                            {c.name} ({c.vote === 'yes' ? '✓' : c.vote === 'maybe' ? '?' : '✗'})
+                                            {c.name}
                                           </div>
                                           <div className="text-gray-300 mt-1 break-words">{c.comment}</div>
                                         </div>

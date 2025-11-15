@@ -735,6 +735,10 @@ export default function PollPage() {
           <p className="text-gray-500">No responses yet. Be the first to vote!</p>
         ) : (
           <div>
+            <div className="text-sm text-gray-600 mb-4">
+              {new Set(responses.map(r => r.participant_email)).size} participants
+            </div>
+            
             {/* Grid Table */}
               <div className="overflow-x-auto border border-gray-200 rounded-lg" style={{ overscrollBehavior: 'contain', height: 'fit-content' }}>
                 <table className="border-collapse m-0 w-full" style={{ tableLayout: 'auto', borderSpacing: 0 }}>
@@ -791,6 +795,7 @@ export default function PollPage() {
                       <tr key={email} className="hover:bg-gray-50">
                         <td className="p-3 border-r border-b border-gray-200">
                           <div className="font-medium truncate" style={{ lineHeight: '1.5' }}>{displayName}</div>
+                          <div className="text-xs text-gray-500 truncate mt-1">{email}</div>
                         </td>
                         {options.map((option) => {
                           const response = responses.find(r => 
@@ -1140,25 +1145,7 @@ export default function PollPage() {
         </div>
       )}
 
-      {/* Participants List - After Already Voted? */}
-      {responses.length > 0 && (
-        <div className="bg-white rounded-lg shadow p-6 mb-8">
-          <h2 className="text-xl font-semibold mb-4">👥 Participants</h2>
-          <div className="space-y-2">
-            {Array.from(new Set(responses.map(r => r.participant_email))).map(email => {
-              const participant = responses.find(r => r.participant_email === email)
-              return (
-                <div key={email} className="flex items-center space-x-2">
-                  <span className="font-medium">{participant?.participant_name}</span>
-                  <span className="text-gray-500 text-sm">({email})</span>
-                </div>
-              )
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Share Poll Section - Creator only, below Participants */}
+      {/* Share Poll Section - Creator only, below Already Voted? */}
       {isCreatorMode && (
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-8">
           <h3 className="text-blue-900 font-semibold mb-2">📤 Share This Poll</h3>

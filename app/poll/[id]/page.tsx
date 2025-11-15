@@ -238,10 +238,10 @@ export default function PollPage() {
           .not('option_id', 'is', null)
 
         if (!invitesError && invitesData) {
-          const optionIdsWithInvites = new Set(
+          const optionIdsWithInvites = new Set<string>(
             invitesData
               .map((r: any) => r.option_id)
-              .filter((id: string) => id !== null)
+              .filter((id: any): id is string => typeof id === 'string' && id !== null)
           )
           setOptionsWithInvites(optionIdsWithInvites)
         }

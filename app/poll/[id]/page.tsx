@@ -854,6 +854,58 @@ export default function PollPage() {
         )}
       </div>
 
+      {/* Organizer Authentication Banner - Only for non-organizers */}
+      {!isOrganizer && poll && getPollStatus(poll) === 'active' && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+          <div className="flex items-start gap-3">
+            <span className="text-2xl">🔐</span>
+            <div className="flex-1">
+              <h3 className="text-blue-900 font-semibold mb-1">Are you the organizer of this poll?</h3>
+              <p className="text-sm text-slate-600 mb-4">
+                Unlock organizer tools like sending invites or deleting this poll.
+              </p>
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Enter organizer email:
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      type="email"
+                      value={creatorEmailInput}
+                      onChange={(e) => {
+                        setCreatorEmailInput(e.target.value)
+                        setEmailVerificationError('')
+                      }}
+                      onKeyDown={async (e) => {
+                        if (e.key === 'Enter' && creatorEmailInput.trim()) {
+                          await handleOrganizerEmailVerification()
+                        }
+                      }}
+                      className="flex-1 px-3 py-2 bg-white text-gray-900 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="organizer@email.com"
+                    />
+                    <button
+                      onClick={handleOrganizerEmailVerification}
+                      disabled={isVerifyingEmail || !creatorEmailInput.trim()}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
+                    >
+                      {isVerifyingEmail ? 'Verifying...' : 'Unlock'}
+                    </button>
+                  </div>
+                  {emailVerificationError && (
+                    <p className="mt-2 text-sm text-red-600">{emailVerificationError}</p>
+                  )}
+                </div>
+                <div className="text-xs text-slate-500">
+                  Or paste your organizer link if you have one.
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Share This Poll - Moved to top */}
       {poll && getPollStatus(poll) === 'active' && (
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
@@ -1579,152 +1631,6 @@ export default function PollPage() {
         </div>
       )}
 
-      {/* Organizer Tools - Collapsed section for non-organizers only */}
-      {!isOrganizer && poll && getPollStatus(poll) === 'active' && (
-        <div className="bg-white rounded-lg shadow border border-gray-200 mb-8">
-          {/* Collapsed Header */}
-          <button
-            onClick={() => setIsOrganizerToolsExpanded(!isOrganizerToolsExpanded)}
-            className="w-full px-6 py-4 flex items-center justify-between hover:bg-gray-50 transition-colors"
-          >
-            <div className="text-left">
-              <h3 className="text-lg font-semibold text-gray-900">Organizer tools</h3>
-              <p className="text-sm text-gray-600 mt-1">Send calendar invites or delete this poll.</p>
-            </div>
-            <span className="text-gray-400 text-xl">
-              {isOrganizerToolsExpanded ? '▼' : '▶'}
-            </span>
-          </button>
-
-          {/* Expanded Content */}
-          {isOrganizerToolsExpanded && (
-            <div className="px-6 pb-6 border-t border-gray-200">
-              {/* Email Verification (if not verified) */}
-              {!verifiedCreatorEmail ? (
-                <div className="mt-4 space-y-6">
-                  {/* Send Calendar Invites */}
-                  <div>
-                    <h4 className="text-md font-semibold text-gray-900 mb-2">📅 Send Calendar Invites</h4>
-                    <p className="text-sm text-slate-600 mb-4">
-                      Only the poll organizer can send calendar invites. Enter the creator's email to continue.
-                    </p>
-                    <div className="space-y-3">
-                      <input
-                        type="email"
-                        value={creatorEmailInput}
-                        onChange={(e) => {
-                          setCreatorEmailInput(e.target.value)
-                          setEmailVerificationError('')
-                        }}
-                        onKeyDown={async (e) => {
-                          if (e.key === 'Enter' && creatorEmailInput.trim()) {
-                            await handleOrganizerEmailVerification()
-                          }
-                        }}
-                        className="w-full px-3 py-2 bg-white text-gray-900 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="creator@email.com"
-                      />
-                      {emailVerificationError && (
-                        <p className="text-sm text-red-600">{emailVerificationError}</p>
-                      )}
-                      <button
-                        onClick={async () => {
-                          await handleOrganizerEmailVerification()
-                          if (verifiedCreatorEmail) {
-                            setShowCalendarModal(true)
-                          }
-                        }}
-                        disabled={isVerifyingEmail || !creatorEmailInput.trim()}
-                        className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                      >
-                        {isVerifyingEmail ? 'Verifying...' : 'Continue'}
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="pt-4 border-t border-gray-200">
-                    {/* Delete Poll */}
-                    <h4 className="text-md font-semibold text-red-600 mb-2">🗑 Delete Poll</h4>
-                    <p className="text-sm text-slate-600 mb-4">
-                      Only the poll organizer can delete this poll. Enter the creator's email to continue.
-                    </p>
-                    <div className="space-y-3">
-                      <input
-                        type="email"
-                        value={creatorEmailInput}
-                        onChange={(e) => {
-                          setCreatorEmailInput(e.target.value)
-                          setEmailVerificationError('')
-                        }}
-                        className="w-full px-3 py-2 bg-white text-gray-900 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="creator@email.com"
-                      />
-                      {emailVerificationError && (
-                        <p className="text-sm text-red-600">{emailVerificationError}</p>
-                      )}
-                      <button
-                        onClick={() => handleCreatorAction('delete')}
-                        className="w-full px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
-                      >
-                        Delete Poll
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div className="mt-4 space-y-6">
-                  {/* Send Calendar Invites */}
-                  {summary.length > 0 && (
-                    <div>
-                      <h4 className="text-md font-semibold text-gray-900 mb-2">📅 Send Calendar Invites</h4>
-                      <p className="text-sm text-slate-600 mb-4">
-                        Send calendar invites to all participants who voted "yes" or "maybe" for a selected time option.
-                      </p>
-                      {(() => {
-                        const totalParticipants = new Set(responses.map(r => r.participant_email)).size
-                        const bestOptions = getBestOptions()
-                        const hasWinningOption = bestOptions.length > 0
-                        const canSendInvites = totalParticipants >= 1 && hasWinningOption
-                        
-                        return (
-                          <>
-                            {!canSendInvites && (
-                              <p className="text-xs text-slate-500 mb-3">
-                                You need at least one "yes" or "maybe" vote before sending calendar invites.
-                              </p>
-                            )}
-                            <button
-                              onClick={() => setShowCalendarModal(true)}
-                              disabled={!canSendInvites}
-                              className="w-full px-4 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
-                            >
-                              📅 Send Calendar Invites
-                            </button>
-                          </>
-                        )
-                      })()}
-                    </div>
-                  )}
-
-                  {/* Delete Poll */}
-                  <div className="pt-4 border-t border-gray-200">
-                    <h4 className="text-md font-semibold text-red-600 mb-2">🗑 Delete Poll</h4>
-                    <p className="text-sm text-slate-600 mb-4">
-                      Permanently delete this poll. This action cannot be undone.
-                    </p>
-                    <button
-                      onClick={() => setShowDeleteConfirm(true)}
-                      className="w-full px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
-                    >
-                      Delete Poll
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      )}
 
       {/* Send Calendar Invites Modal */}
       {showCalendarModal && poll && (

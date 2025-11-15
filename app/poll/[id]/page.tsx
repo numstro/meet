@@ -1072,10 +1072,6 @@ export default function PollPage() {
                         
                         const timeRange = `${formatTime(startTime)} - ${formatTime(endTime)}`
                         
-                        // Get when invites were sent
-                        const inviteInfo = inviteDetails.get(option.id)
-                        const sentAt = inviteInfo ? format(new Date(inviteInfo.created_at), 'MMM d, h:mm a') : null
-                        
                         return (
                           <div key={option.id} className="inline-flex flex-col px-3 py-2 bg-green-50 text-green-700 rounded-md text-xs border border-green-200">
                             <div className="font-medium">
@@ -1084,12 +1080,7 @@ export default function PollPage() {
                             <div className="text-green-600 mt-1">
                               {timeRange}
                             </div>
-                            {sentAt && (
-                              <div className="text-green-500 text-xs mt-1">
-                                Sent {sentAt}
-          </div>
-        )}
-          </div>
+                          </div>
                         )
                       })}
       </div>

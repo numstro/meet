@@ -102,8 +102,9 @@ export default function PollPage() {
   const [emailVerificationError, setEmailVerificationError] = useState('')
   const [pendingCreatorAction, setPendingCreatorAction] = useState<'invites' | 'delete' | 'share' | null>(null)
 
-  // Track which options have had invites sent
+  // Track which options have had invites sent, with their timestamps
   const [optionsWithInvites, setOptionsWithInvites] = useState<Set<string>>(new Set())
+  const [inviteDetails, setInviteDetails] = useState<Map<string, { created_at: string }>>(new Map())
 
   // Organizer tools collapsed state
   const [isOrganizerToolsExpanded, setIsOrganizerToolsExpanded] = useState(false)
@@ -229,21 +230,31 @@ export default function PollPage() {
       // Calculate summary manually (simpler for time buckets)
       calculateSummary(optionsData || [], responsesData || [])
 
-      // Load which options have had invites sent
+      // Load which options have had invites sent, with timestamps
       if (pollData.creator_email) {
         const { data: invitesData, error: invitesError } = await supabase
           .from('rate_limits')
-          .select('option_id')
+          .select('option_id, created_at')
           .eq('creator_email', pollData.creator_email)
           .not('option_id', 'is', null)
+          .order('created_at', { ascending: false })
 
         if (!invitesError && invitesData) {
-          const optionIdsWithInvites = new Set<string>(
-            invitesData
-              .map((r: any) => r.option_id)
-              .filter((id: any): id is string => typeof id === 'string' && id !== null)
-          )
+          const optionIdsWithInvites = new Set<string>()
+          const detailsMap = new Map<string, { created_at: string }>()
+          
+          invitesData.forEach((r: any) => {
+            if (r.option_id && typeof r.option_id === 'string') {
+              optionIdsWithInvites.add(r.option_id)
+              // Store the most recent timestamp for each option
+              if (!detailsMap.has(r.option_id) || new Date(r.created_at) > new Date(detailsMap.get(r.option_id)!.created_at)) {
+                detailsMap.set(r.option_id, { created_at: r.created_at })
+              }
+            }
+          })
+          
           setOptionsWithInvites(optionIdsWithInvites)
+          setInviteDetails(detailsMap)
         }
       }
 
@@ -720,9 +731,14 @@ export default function PollPage() {
 
       if (response.ok) {
         setInviteResult({ success: true, message: result.message })
-        // Add the option to optionsWithInvites
+        // Add the option to optionsWithInvites and store timestamp
         if (selectedOptionId) {
           setOptionsWithInvites(prev => new Set([...Array.from(prev), selectedOptionId]))
+          setInviteDetails(prev => {
+            const newMap = new Map(prev)
+            newMap.set(selectedOptionId, { created_at: new Date().toISOString() })
+            return newMap
+          })
         }
         // Close modal after 2 seconds
         setTimeout(() => {
@@ -1031,7 +1047,7 @@ export default function PollPage() {
               <div className="mt-4 pt-4 border-t border-gray-200">
                 <div className="text-sm text-gray-600">
                   <span className="font-medium">📅 Invitations sent for:</span>
-                  <div className="mt-2 flex flex-wrap gap-2">
+                  <div className="mt-2 space-y-2">
                     {options
                       .filter(opt => optionsWithInvites.has(opt.id))
                       .map(option => {
@@ -1039,18 +1055,49 @@ export default function PollPage() {
                         const timeLabel = option.option_text === 'morning' ? '🌅 Morning' :
                                          option.option_text === 'afternoon' ? '☀️ Afternoon' :
                                          '🌙 Evening'
+                        
+                        // Get default times for this time bucket
+                        const defaultTimes = getDefaultTimes(option.option_text || 'morning')
+                        const startTime = defaultTimes.start
+                        const endTime = defaultTimes.end
+                        
+                        // Format time (HH:MM to 12-hour format)
+                        const formatTime = (time24: string) => {
+                          const [hours, minutes] = time24.split(':')
+                          const hour = parseInt(hours)
+                          const ampm = hour >= 12 ? 'PM' : 'AM'
+                          const hour12 = hour % 12 || 12
+                          return `${hour12}:${minutes} ${ampm}`
+                        }
+                        
+                        const timeRange = `${formatTime(startTime)} - ${formatTime(endTime)}`
+                        
+                        // Get when invites were sent
+                        const inviteInfo = inviteDetails.get(option.id)
+                        const sentAt = inviteInfo ? format(new Date(inviteInfo.created_at), 'MMM d, h:mm a') : null
+                        
                         return (
-                          <span key={option.id} className="inline-flex items-center px-2 py-1 bg-green-50 text-green-700 rounded-md text-xs">
-                            {dateStr} {timeLabel}
-                          </span>
-                        )
-                      })}
-                  </div>
-                </div>
-              </div>
-            )}
+                          <div key={option.id} className="inline-flex flex-col px-3 py-2 bg-green-50 text-green-700 rounded-md text-xs border border-green-200">
+                            <div className="font-medium">
+                              {dateStr} {timeLabel}
+                            </div>
+                            <div className="text-green-600 mt-1">
+                              {timeRange}
+                            </div>
+                            {sentAt && (
+                              <div className="text-green-500 text-xs mt-1">
+                                Sent {sentAt}
           </div>
         )}
+          </div>
+                        )
+                      })}
+      </div>
+          </div>
+        </div>
+      )}
+        </div>
+      )}
       </div>
 
       {/* Voting Form */}
@@ -1176,7 +1223,7 @@ export default function PollPage() {
                               
                               {/* Comment button - reserve space to prevent layout shift */}
                               <div className="h-6 flex items-center justify-center">
-                                {currentResponse && (
+                              {currentResponse && (
                                   <button
                                     type="button"
                                     onClick={() => toggleCommentField(option.id)}
@@ -1197,38 +1244,38 @@ export default function PollPage() {
                               {isCommentExpanded && currentResponse && (
                                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50" onClick={() => toggleCommentField(option.id)}>
                                   <div className="bg-white border border-gray-300 rounded-lg shadow-lg p-4 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
-                                    <div className="flex justify-between items-center mb-2">
+                                        <div className="flex justify-between items-center mb-2">
                                       <label className="text-sm font-medium text-gray-700">Add a comment (optional)</label>
-                                      <button
-                                        type="button"
-                                        onClick={() => toggleCommentField(option.id)}
+                                          <button
+                                            type="button"
+                                            onClick={() => toggleCommentField(option.id)}
                                         className="text-gray-400 hover:text-gray-600 text-lg"
-                                      >
-                                        ✕
-                                      </button>
-                                    </div>
-                                    <textarea
-                                      value={userComments[option.id] || ''}
-                                      onChange={(e) => handleCommentChange(option.id, e.target.value)}
-                                      placeholder="e.g., 'Can do early evening' or 'I have a dinner'"
-                                      maxLength={200}
-                                      rows={3}
-                                      className="w-full px-3 py-2 text-sm bg-white text-gray-900 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                                          >
+                                            ✕
+                                          </button>
+                                        </div>
+                                        <textarea
+                                          value={userComments[option.id] || ''}
+                                          onChange={(e) => handleCommentChange(option.id, e.target.value)}
+                                          placeholder="e.g., 'Can do early evening' or 'I have a dinner'"
+                                          maxLength={200}
+                                          rows={3}
+                                          className="w-full px-3 py-2 text-sm bg-white text-gray-900 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
                                       autoFocus
-                                    />
-                                    <div className="flex justify-between items-center mt-2">
-                                      <span className="text-xs text-gray-500">
-                                        {(userComments[option.id] || '').length}/200
-                                      </span>
-                                      <button
-                                        type="button"
-                                        onClick={() => toggleCommentField(option.id)}
+                                        />
+                                        <div className="flex justify-between items-center mt-2">
+                                          <span className="text-xs text-gray-500">
+                                            {(userComments[option.id] || '').length}/200
+                                          </span>
+                                          <button
+                                            type="button"
+                                            onClick={() => toggleCommentField(option.id)}
                                         className="text-sm text-blue-600 hover:text-blue-800 font-medium"
-                                      >
-                                        Done
-                                      </button>
-                                    </div>
-                                  </div>
+                                          >
+                                            Done
+                                          </button>
+                                        </div>
+                                      </div>
                                 </div>
                               )}
                             </div>
@@ -1458,7 +1505,7 @@ export default function PollPage() {
             <div className="text-left">
               <h3 className="text-lg font-semibold text-gray-900">Organizer tools</h3>
               <p className="text-sm text-gray-600 mt-1">Send calendar invites or delete this poll.</p>
-            </div>
+                </div>
             <span className="text-gray-400 text-xl">
               {isOrganizerToolsExpanded ? '▼' : '▶'}
             </span>
@@ -1469,40 +1516,89 @@ export default function PollPage() {
             <div className="px-6 pb-6 border-t border-gray-200">
               {/* Email Verification (if not verified) */}
               {!verifiedCreatorEmail ? (
-                <div className="mt-4 mb-6">
-                  <p className="text-sm text-gray-600 mb-3">
-                    For the person who created this poll.
-                  </p>
-                  <div className="space-y-3">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Creator Email:
-                      </label>
-                      <input
-                        type="email"
-                        value={creatorEmailInput}
-                        onChange={(e) => {
-                          setCreatorEmailInput(e.target.value)
-                          setEmailVerificationError('')
-                        }}
-                        onKeyDown={async (e) => {
-                          if (e.key === 'Enter' && creatorEmailInput.trim()) {
-                            await handleOrganizerEmailVerification()
-                          }
-                        }}
-                        className="w-full px-3 py-2 bg-white text-gray-900 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="your@email.com"
-                      />
-                      {emailVerificationError && (
-                        <p className="mt-2 text-sm text-red-600">{emailVerificationError}</p>
-                      )}
+                <div className="mt-4 space-y-6">
+                  <div>
+                    <p className="text-sm text-gray-600 mb-3">
+                      For the person who created this poll. Enter your creator email to unlock these actions.
+                    </p>
+                    <div className="space-y-3">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Creator Email:
+                        </label>
+                        <input
+                          type="email"
+                          value={creatorEmailInput}
+                          onChange={(e) => {
+                            setCreatorEmailInput(e.target.value)
+                            setEmailVerificationError('')
+                          }}
+                          onKeyDown={async (e) => {
+                            if (e.key === 'Enter' && creatorEmailInput.trim()) {
+                              await handleOrganizerEmailVerification()
+                            }
+                          }}
+                          className="w-full px-3 py-2 bg-white text-gray-900 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          placeholder="your@email.com"
+                        />
+                        {emailVerificationError && (
+                          <p className="mt-2 text-sm text-red-600">{emailVerificationError}</p>
+                        )}
+                      </div>
+                      <button
+                        onClick={handleOrganizerEmailVerification}
+                        disabled={isVerifyingEmail || !creatorEmailInput.trim()}
+                        className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      >
+                        {isVerifyingEmail ? 'Verifying...' : 'Confirm'}
+                      </button>
                     </div>
+                  </div>
+
+                  {/* Send Calendar Invites - Show but disabled */}
+                  {summary.length > 0 && (
+                    <div>
+                      <h4 className="text-md font-semibold text-gray-900 mb-2">📅 Send Calendar Invites</h4>
+                      <p className="text-sm text-gray-600 mb-4">
+                        Send calendar invites to all participants who voted "yes" or "maybe" for a selected time option.
+                      </p>
+                      {(() => {
+                        const totalParticipants = new Set(responses.map(r => r.participant_email)).size
+                        const bestOptions = getBestOptions()
+                        const hasWinningOption = bestOptions.length > 0
+                        const canSendInvites = totalParticipants >= 1 && hasWinningOption
+                        
+              return (
+                          <>
+                            {!canSendInvites && (
+                              <p className="text-xs text-gray-500 mb-3">
+                                Select a time option above to enable sending invites.
+                              </p>
+                            )}
+                            <button
+                              onClick={() => handleCreatorAction('invites')}
+                              disabled={!canSendInvites}
+                              className="w-full px-4 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
+                            >
+                              📅 Send Calendar Invites
+                            </button>
+                          </>
+                        )
+                      })()}
+                </div>
+                  )}
+
+                  {/* Delete Poll - Show but disabled */}
+                  <div className="pt-4 border-t border-gray-200">
+                    <h4 className="text-md font-semibold text-red-600 mb-2">🗑️ Delete Poll</h4>
+                    <p className="text-sm text-gray-600 mb-4">
+                      Permanently delete this poll. This action cannot be undone.
+                    </p>
                     <button
-                      onClick={handleOrganizerEmailVerification}
-                      disabled={isVerifyingEmail || !creatorEmailInput.trim()}
-                      className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      onClick={() => handleCreatorAction('delete')}
+                      className="w-full px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
                     >
-                      {isVerifyingEmail ? 'Verifying...' : 'Confirm'}
+                      Delete Poll
                     </button>
                   </div>
                 </div>
@@ -1525,9 +1621,7 @@ export default function PollPage() {
                           <>
                             {!canSendInvites && (
                               <p className="text-xs text-gray-500 mb-3">
-                                {totalParticipants === 0 
-                                  ? 'Select a time option above to enable sending invites.'
-                                  : 'Select a time option above to enable sending invites.'}
+                                Select a time option above to enable sending invites.
                               </p>
                             )}
                             <button
@@ -1540,7 +1634,7 @@ export default function PollPage() {
                           </>
                         )
                       })()}
-                    </div>
+          </div>
                   )}
 
                   {/* Delete Poll */}

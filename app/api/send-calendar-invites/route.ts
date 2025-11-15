@@ -265,13 +265,14 @@ export async function POST(request: NextRequest) {
       day: 'numeric'
     })
     
-    // Format time string for display
+    // Format time string for display - use the user's timezone explicitly
     const formatTime = (date: Date) => {
-      return date.toLocaleTimeString('en-US', { 
-        hour: 'numeric', 
+      return new Intl.DateTimeFormat('en-US', {
+        timeZone: validTimezone,
+        hour: 'numeric',
         minute: '2-digit',
-        hour12: true 
-      })
+        hour12: true
+      }).format(date)
     }
     const timeStr = `${formatTime(start)} - ${formatTime(end)}`
     

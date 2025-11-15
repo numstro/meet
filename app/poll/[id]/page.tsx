@@ -149,13 +149,23 @@ export default function PollPage() {
       // Auto-fill creator email for calendar invites if they're the creator
       setCreatorEmailForInvite(creatorEmail)
       
+      // Auto-verify creator if their email matches the poll's creator_email
+      if (poll && creatorEmail.toLowerCase().trim() === poll.creator_email.toLowerCase().trim()) {
+        const verifiedEmail = creatorEmail.toLowerCase().trim()
+        setVerifiedCreatorEmail(verifiedEmail)
+        // Save to localStorage for future visits
+        if (typeof window !== 'undefined') {
+          localStorage.setItem(`verified_creator_${poll.id}`, verifiedEmail)
+        }
+      }
+      
       // Clear the URL params after setting them (optional, for cleaner URLs)
       const url = new URL(window.location.href)
       url.searchParams.delete('creatorName')
       url.searchParams.delete('creatorEmail')
       window.history.replaceState({}, '', url.toString())
     }
-  }, [searchParams])
+  }, [searchParams, poll])
 
   // Close tooltip when clicking outside
   useEffect(() => {
@@ -654,7 +664,7 @@ export default function PollPage() {
         setShowDeleteConfirm(true)
         setDeleteEmail(verifiedEmail)
       } else if (pendingCreatorAction === 'share') {
-        // Share is always available
+        // Share is always available (shouldn't reach here, but handle it anyway)
         if (typeof window !== 'undefined') {
           navigator.clipboard.writeText(window.location.href)
         }

@@ -722,7 +722,7 @@ export default function PollPage() {
         setInviteResult({ success: true, message: result.message })
         // Add the option to optionsWithInvites
         if (selectedOptionId) {
-          setOptionsWithInvites(prev => new Set([...prev, selectedOptionId]))
+          setOptionsWithInvites(prev => new Set([...Array.from(prev), selectedOptionId]))
         }
         // Close modal after 2 seconds
         setTimeout(() => {

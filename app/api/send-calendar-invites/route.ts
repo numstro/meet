@@ -265,16 +265,15 @@ export async function POST(request: NextRequest) {
       day: 'numeric'
     })
     
-    // Format time string for display - use the user's timezone explicitly
-    const formatTime = (date: Date) => {
-      return new Intl.DateTimeFormat('en-US', {
-        timeZone: validTimezone,
-        hour: 'numeric',
-        minute: '2-digit',
-        hour12: true
-      }).format(date)
+    // Format time string for display - format directly from parsed hour/minute values
+    // This avoids timezone conversion issues since we already have the correct local times
+    const formatTimeFromHourMin = (hour: number, min: number): string => {
+      const hour12 = hour % 12 || 12
+      const ampm = hour >= 12 ? 'PM' : 'AM'
+      const minStr = String(min).padStart(2, '0')
+      return `${hour12}:${minStr} ${ampm}`
     }
-    const timeStr = `${formatTime(start)} - ${formatTime(end)}`
+    const timeStr = `${formatTimeFromHourMin(startHour, startMin)} - ${formatTimeFromHourMin(endHour, endMin)}`
     
     // Generate Google Calendar link as fallback
     // Format: YYYYMMDDTHHMMSSZ (UTC)

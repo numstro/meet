@@ -856,22 +856,32 @@ export default function PollPage() {
             <span>Organizer access enabled</span>
           </div>
         )}
-        {/* Small organizer link for non-organizers */}
-        {!isOrganizer && poll && getPollStatus(poll) === 'active' && (
-          <div className="mt-2">
-            <button
-              onClick={() => setShowOrganizerAuthModal(true)}
-              className="text-sm text-blue-600 hover:text-blue-800 hover:underline"
-            >
-              Are you the organizer? Unlock tools
-            </button>
-          </div>
-        )}
       </div>
+
+      {/* Organizer Access CTA Box - Only for non-organizers */}
+      {!isOrganizer && poll && getPollStatus(poll) === 'active' && (
+        <div className="bg-[#E7F0FF] border border-blue-200 rounded-lg p-3 mb-8">
+          <div className="flex items-start gap-3">
+            <span className="text-xl">🔑</span>
+            <div className="flex-1">
+              <h3 className="text-sm font-semibold text-gray-900 mb-1">Organizer access</h3>
+              <p className="text-xs text-slate-600 mb-3">
+                If you're the organizer, log in to send invites or manage the poll.
+              </p>
+              <button
+                onClick={() => setShowOrganizerAuthModal(true)}
+                className="text-sm text-blue-600 hover:text-blue-800 font-medium hover:underline"
+              >
+                Log in as organizer →
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Share This Poll - Moved to top */}
       {poll && getPollStatus(poll) === 'active' && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-8">
           <h3 className="text-blue-900 font-semibold mb-2">🔗 Share This Poll</h3>
           <p className="text-blue-800 text-sm mb-3">Send this link to participants so they can vote:</p>
           <div className="flex gap-2">
@@ -1169,7 +1179,7 @@ export default function PollPage() {
       )}
       </div>
 
-      {/* Send Calendar Invites - Organizer only, inline */}
+      {/* Send Calendar Invites - Organizer only, inline (immediately under Voting Results) */}
       {isOrganizer && poll && getPollStatus(poll) === 'active' && (
         <div className="bg-white rounded-lg shadow p-6 mb-8">
           <h3 className="text-lg font-semibold text-gray-900 mb-2">📅 Send Calendar Invites</h3>
@@ -1204,12 +1214,12 @@ export default function PollPage() {
         </div>
       )}
 
-      {/* Voting Form - Improved styling */}
+      {/* Voting Form - Reduced visual weight */}
       {(!hasVoted || isEditingVotes) && poll && getPollStatus(poll) === 'active' ? (
-        <div className="bg-gray-50 rounded-lg border border-gray-200 p-6 mb-6">
+        <div className="bg-[#F3F6FB] rounded-lg border border-gray-200 p-6 mb-8">
           <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-semibold text-gray-900">
-              {isEditingVotes ? '✏️ Edit Your Votes' : '✅ Mark Your Availability'}
+            <h2 className="text-lg font-semibold text-gray-900">
+              {isEditingVotes ? '✏️ Edit Your Votes' : '☑ Mark Your Availability'}
             </h2>
             {isEditingVotes && (
               <button
@@ -1428,7 +1438,7 @@ export default function PollPage() {
 
       {/* Already Voted? - Moved below voting form */}
       {!hasVoted && !isEditingVotes && poll && getPollStatus(poll) === 'active' && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-6">
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-8">
           <h2 className="text-lg font-semibold mb-4">🔍 Already Voted?</h2>
           <p className="text-blue-800 mb-4">
             Enter your email to check if you've already voted and edit your responses.

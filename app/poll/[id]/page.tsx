@@ -898,38 +898,6 @@ export default function PollPage() {
         )}
       </div>
 
-      {/* Share Poll Section - Below grid, visible to all */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-8">
-        <h3 className="text-blue-900 font-semibold mb-2">📤 Share This Poll</h3>
-        <p className="text-blue-800 text-sm mb-3">Send this link to participants so they can vote:</p>
-        <div className="flex gap-2">
-          <input
-            type="text"
-            value={typeof window !== 'undefined' ? window.location.href : ''}
-            readOnly
-            className="flex-1 px-3 py-2 bg-white border border-blue-300 rounded-md font-mono text-sm"
-          />
-          <button
-            type="button"
-            onClick={() => {
-              if (typeof window !== 'undefined') {
-                navigator.clipboard.writeText(window.location.href)
-                // Simple feedback - you could add a toast here
-                const button = event?.target as HTMLButtonElement
-                const originalText = button.textContent
-                button.textContent = '✅ Copied!'
-                setTimeout(() => {
-                  button.textContent = originalText
-                }, 2000)
-              }
-            }}
-            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors whitespace-nowrap"
-          >
-            📋 Copy Link
-          </button>
-        </div>
-      </div>
-
       {/* Voting Form */}
       {(!hasVoted || isEditingVotes) && poll && getPollStatus(poll) === 'active' ? (
         <div className="bg-white rounded-lg shadow p-6">
@@ -1028,7 +996,8 @@ export default function PollPage() {
                         
                         return (
                           <td key={option.id} className="text-center p-2 border-r border-b border-gray-200">
-                            <div className="flex flex-col space-y-2">
+                            <div className="flex flex-col items-center space-y-1 min-h-[100px]">
+                              {/* Voting buttons - always visible */}
                               <div className="flex flex-col space-y-1">
                                 {(['yes', 'maybe', 'no'] as const).map((response) => (
                                   <button
@@ -1050,13 +1019,13 @@ export default function PollPage() {
                                 ))}
                               </div>
                               
-                              {/* Comment button - opens popover */}
-                              {currentResponse && (
-                                <div className="mt-1">
+                              {/* Comment button - reserve space to prevent layout shift */}
+                              <div className="h-6 flex items-center justify-center">
+                                {currentResponse && (
                                   <button
                                     type="button"
                                     onClick={() => toggleCommentField(option.id)}
-                                    className={`text-xs hover:underline flex items-center gap-1 mx-auto ${
+                                    className={`text-xs hover:underline flex items-center gap-1 ${
                                       hasComment 
                                         ? 'text-blue-700 font-medium' 
                                         : 'text-blue-600 hover:text-blue-800'
@@ -1064,47 +1033,47 @@ export default function PollPage() {
                                     title={hasComment ? `Comment: ${userComments[option.id]}` : 'Add a comment'}
                                   >
                                     {hasComment ? '💬' : '➕'}
-                                    <span className="ml-1">{hasComment ? 'Edit comment' : 'Add comment'}</span>
+                                    <span className="ml-1">{hasComment ? 'Edit' : 'Add'}</span>
                                   </button>
-                                  
-                                  {/* Popover for comment - fixed positioning to prevent layout shift */}
-                                  {isCommentExpanded && (
-                                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50" onClick={() => toggleCommentField(option.id)}>
-                                      <div className="bg-white border border-gray-300 rounded-lg shadow-lg p-4 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
-                                        <div className="flex justify-between items-center mb-2">
-                                          <label className="text-sm font-medium text-gray-700">Add a comment (optional)</label>
-                                          <button
-                                            type="button"
-                                            onClick={() => toggleCommentField(option.id)}
-                                            className="text-gray-400 hover:text-gray-600 text-lg"
-                                          >
-                                            ✕
-                                          </button>
-                                        </div>
-                                        <textarea
-                                          value={userComments[option.id] || ''}
-                                          onChange={(e) => handleCommentChange(option.id, e.target.value)}
-                                          placeholder="e.g., 'Can do early evening' or 'I have a dinner'"
-                                          maxLength={200}
-                                          rows={3}
-                                          className="w-full px-3 py-2 text-sm bg-white text-gray-900 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-                                          autoFocus
-                                        />
-                                        <div className="flex justify-between items-center mt-2">
-                                          <span className="text-xs text-gray-500">
-                                            {(userComments[option.id] || '').length}/200
-                                          </span>
-                                          <button
-                                            type="button"
-                                            onClick={() => toggleCommentField(option.id)}
-                                            className="text-sm text-blue-600 hover:text-blue-800 font-medium"
-                                          >
-                                            Done
-                                          </button>
-                                        </div>
-                                      </div>
+                                )}
+                              </div>
+                              
+                              {/* Popover for comment - fixed positioning to prevent layout shift */}
+                              {isCommentExpanded && currentResponse && (
+                                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50" onClick={() => toggleCommentField(option.id)}>
+                                  <div className="bg-white border border-gray-300 rounded-lg shadow-lg p-4 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+                                    <div className="flex justify-between items-center mb-2">
+                                      <label className="text-sm font-medium text-gray-700">Add a comment (optional)</label>
+                                      <button
+                                        type="button"
+                                        onClick={() => toggleCommentField(option.id)}
+                                        className="text-gray-400 hover:text-gray-600 text-lg"
+                                      >
+                                        ✕
+                                      </button>
                                     </div>
-                                  )}
+                                    <textarea
+                                      value={userComments[option.id] || ''}
+                                      onChange={(e) => handleCommentChange(option.id, e.target.value)}
+                                      placeholder="e.g., 'Can do early evening' or 'I have a dinner'"
+                                      maxLength={200}
+                                      rows={3}
+                                      className="w-full px-3 py-2 text-sm bg-white text-gray-900 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                                      autoFocus
+                                    />
+                                    <div className="flex justify-between items-center mt-2">
+                                      <span className="text-xs text-gray-500">
+                                        {(userComments[option.id] || '').length}/200
+                                      </span>
+                                      <button
+                                        type="button"
+                                        onClick={() => toggleCommentField(option.id)}
+                                        className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+                                      >
+                                        Done
+                                      </button>
+                                    </div>
+                                  </div>
                                 </div>
                               )}
                             </div>
@@ -1149,7 +1118,7 @@ export default function PollPage() {
         </div>
       ) : null}
 
-      {/* Already Voted? - Moved lower */}
+      {/* Already Voted? - After voting form */}
       {!hasVoted && !isEditingVotes && poll && getPollStatus(poll) === 'active' && (
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-8">
           <h2 className="text-lg font-semibold mb-4">🔍 Already Voted?</h2>
@@ -1175,23 +1144,7 @@ export default function PollPage() {
         </div>
       )}
 
-      {/* Send Calendar Invites - Creator only, below voting */}
-      {isCreatorMode && summary.length > 0 && poll && getPollStatus(poll) === 'active' && (
-        <div className="bg-white rounded-lg shadow p-6 mb-8">
-          <h2 className="text-xl font-semibold mb-4">📅 Send Calendar Invites</h2>
-          <p className="text-gray-600 mb-4">
-            Send calendar invites to all participants who voted "yes" or "maybe" for a selected time option.
-          </p>
-          <button
-            onClick={() => setShowCalendarModal(true)}
-            className="w-full px-4 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors font-medium"
-          >
-            📅 Send Calendar Invites
-          </button>
-        </div>
-      )}
-
-      {/* Participants List */}
+      {/* Participants List - After Already Voted? */}
       {responses.length > 0 && (
         <div className="bg-white rounded-lg shadow p-6 mb-8">
           <h2 className="text-xl font-semibold mb-4">👥 Participants</h2>
@@ -1209,25 +1162,59 @@ export default function PollPage() {
         </div>
       )}
 
-      {/* Delete Poll - Creator only, at bottom */}
-      {isCreatorMode && poll && getPollStatus(poll) === 'active' && (
+      {/* Share Poll Section - Creator only, below Participants */}
+      {isCreatorMode && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-8">
+          <h3 className="text-blue-900 font-semibold mb-2">📤 Share This Poll</h3>
+          <p className="text-blue-800 text-sm mb-3">Send this link to participants so they can vote:</p>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={typeof window !== 'undefined' ? window.location.href : ''}
+              readOnly
+              className="flex-1 px-3 py-2 bg-white border border-blue-300 rounded-md font-mono text-sm"
+            />
+            <button
+              type="button"
+              onClick={() => {
+                if (typeof window !== 'undefined') {
+                  navigator.clipboard.writeText(window.location.href)
+                  // Simple feedback - you could add a toast here
+                  const button = event?.target as HTMLButtonElement
+                  const originalText = button.textContent
+                  button.textContent = '✅ Copied!'
+                  setTimeout(() => {
+                    button.textContent = originalText
+                  }, 2000)
+                }
+              }}
+              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors whitespace-nowrap"
+            >
+              📋 Copy Link
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Send Calendar Invites - Creator only, below Share Poll */}
+      {isCreatorMode && summary.length > 0 && poll && getPollStatus(poll) === 'active' && (
         <div className="bg-white rounded-lg shadow p-6 mb-8">
-          <h2 className="text-xl font-semibold mb-4 text-red-600">🗑️ Manage Poll</h2>
+          <h2 className="text-xl font-semibold mb-4">📅 Send Calendar Invites</h2>
           <p className="text-gray-600 mb-4">
-            Permanently delete this poll. This action cannot be undone.
+            Send calendar invites to all participants who voted "yes" or "maybe" for a selected time option.
           </p>
           <button
-            onClick={() => setShowDeleteConfirm(true)}
-            className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
+            onClick={() => setShowCalendarModal(true)}
+            className="w-full px-4 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors font-medium"
           >
-            Delete Poll
+            📅 Send Calendar Invites
           </button>
         </div>
       )}
 
       {/* Propose New Time */}
       {poll && getPollStatus(poll) === 'active' && (
-      <div className="bg-white rounded-lg shadow p-6 mt-8">
+      <div className="bg-white rounded-lg shadow p-6 mb-8">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-xl font-semibold">💡 Suggest a New Time</h2>
           {!showProposeForm && (
@@ -1351,21 +1338,19 @@ export default function PollPage() {
       </div>
       )}
 
-      {/* Participants List */}
-      {responses.length > 0 && (
-        <div className="bg-white rounded-lg shadow p-6 mt-8">
-          <h2 className="text-xl font-semibold mb-4">👥 Participants</h2>
-          <div className="space-y-2">
-            {Array.from(new Set(responses.map(r => r.participant_email))).map(email => {
-              const participant = responses.find(r => r.participant_email === email)
-              return (
-                <div key={email} className="flex items-center space-x-2">
-                  <span className="font-medium">{participant?.participant_name}</span>
-                  <span className="text-gray-500 text-sm">({email})</span>
-                </div>
-              )
-            })}
-          </div>
+      {/* Delete Poll - Creator only, at very bottom */}
+      {isCreatorMode && poll && getPollStatus(poll) === 'active' && (
+        <div className="bg-white rounded-lg shadow p-6 mb-8 border-l-4 border-red-500">
+          <h2 className="text-xl font-semibold mb-4 text-red-600">🗑️ Manage Poll</h2>
+          <p className="text-gray-600 mb-4">
+            Permanently delete this poll. This action cannot be undone.
+          </p>
+          <button
+            onClick={() => setShowDeleteConfirm(true)}
+            className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
+          >
+            Delete Poll
+          </button>
         </div>
       )}
 

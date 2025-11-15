@@ -7,7 +7,7 @@ import ical, {
   ICalEventStatus,
   ICalEventBusyStatus
 } from 'ical-generator'
-import { sendInviteCalendlyStyle } from '@/lib/sendInviteCalendlyStyle'
+import { sendInviteResend } from '@/lib/sendInviteResend'
 
 export const dynamic = 'force-dynamic'
 
@@ -574,7 +574,7 @@ END:VTIMEZONE`,
         const personalizedText = `${voter.participant_name || 'Hi there'},\n\n${poll.creator_name} has scheduled the meeting based on your availability:\n\n${poll.title}${poll.description ? `\n${poll.description}` : ''}\n\n📅 Date: ${dateStr}\n🕐 Time: ${timeStr}${poll.location ? `\n📍 Location: ${poll.location}` : ''}\n\nA calendar invite has been attached to this email as invite.ics. You can also add it directly to your calendar:\n\nAdd to Google Calendar: ${googleCalendarUrl}\n\nView Poll: ${request.nextUrl.origin}/poll/${pollId}\n\nThis invite was sent because you voted "yes" or "maybe" for this time slot.`
         const subject = `📅 Calendar Invite: ${poll.title}`
         
-        await sendInviteCalendlyStyle({
+        await sendInviteResend({
           from: 'Meetup <noreply@numstro.com>',
           to: voter.participant_email,
           replyTo: poll.creator_email,

@@ -7,7 +7,7 @@
 
 ---
 
-## 1. Original Goal
+## 1. Original WhereGoal
 
 Implement a reliable "Send Calendar Invites" flow inside the Meet app, where a poll creator can email .ics invites to all participants who voted "Yes" or "Maybe" for a selected time slot.
 

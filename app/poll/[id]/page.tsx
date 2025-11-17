@@ -424,6 +424,24 @@ export default function PollPage() {
     setError('')
 
     try {
+      // Check if this is a new participant (not editing existing votes)
+      const isNewParticipant = !existingVoterEmail || existingVoterEmail.toLowerCase() !== participantEmail.trim().toLowerCase()
+      
+      if (isNewParticipant) {
+        // Count current active participants (excluding soft-deleted)
+        const activeParticipants = responses.filter(
+          r => r.is_active !== false && r.is_deleted !== true
+        )
+        const uniqueParticipants = new Set(activeParticipants.map(r => r.participant_email))
+        
+        // If we're adding a new participant, check the limit
+        if (uniqueParticipants.size >= 10) {
+          setError('This poll has reached the maximum of 10 participants. Please contact the organizer if you need to participate.')
+          setIsSubmitting(false)
+          return
+        }
+      }
+
       // Use upsert (insert or update) to handle existing responses
       // Note: comment field is optional - will be ignored if column doesn't exist in DB
       // Set is_active = true and is_deleted = false when creating/updating votes

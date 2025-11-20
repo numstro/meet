@@ -716,7 +716,11 @@ export default function PollPage() {
     // Share is always available to everyone - no verification needed
     if (action === 'share') {
       if (typeof window !== 'undefined') {
-        navigator.clipboard.writeText(window.location.href)
+        // Use short_id in URL if available, otherwise use current URL
+        const shareUrl = poll?.short_id 
+          ? `${window.location.origin}/poll/${poll.short_id}${window.location.search}`
+          : window.location.href
+        navigator.clipboard.writeText(shareUrl)
         // Show feedback
         const button = document.querySelector('[data-share-button]') as HTMLButtonElement
         if (button) {
@@ -785,7 +789,11 @@ export default function PollPage() {
       } else if (pendingCreatorAction === 'share') {
         // Share is always available (shouldn't reach here, but handle it anyway)
         if (typeof window !== 'undefined') {
-          navigator.clipboard.writeText(window.location.href)
+          // Use short_id in URL if available, otherwise use current URL
+          const shareUrl = poll?.short_id 
+            ? `${window.location.origin}/poll/${poll.short_id}${window.location.search}`
+            : window.location.href
+          navigator.clipboard.writeText(shareUrl)
         }
       }
       

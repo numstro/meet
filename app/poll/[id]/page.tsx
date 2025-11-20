@@ -573,7 +573,14 @@ export default function PollPage() {
       setProposedDate('')
       setProposedTimeBuckets([])
       setProposerName('')
-      loadPollData() // Refresh data
+      await loadPollData() // Refresh data
+      
+      // If user has already voted, enable edit mode so they can vote on the newly suggested time
+      if (hasVoted && existingVoterEmail) {
+        setIsEditingVotes(true)
+        // Reload user's existing votes to populate the form
+        await checkExistingVotes(existingVoterEmail)
+      }
     } catch (err: any) {
       setError(err.message || 'Failed to propose new time')
     } finally {

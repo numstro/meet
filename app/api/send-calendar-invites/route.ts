@@ -576,7 +576,7 @@ END:VTIMEZONE`,
              style="background: #4285f4; color: white; padding: 14px 28px; text-decoration: none; border-radius: 8px; display: inline-block; margin-right: 12px; font-weight: 600; font-size: 16px; box-shadow: 0 2px 4px rgba(66, 133, 244, 0.3);">
             📅 Add to Google Calendar
           </a>
-          <a href="${request.nextUrl.origin}/poll/${pollId}" 
+          <a href="${request.nextUrl.origin}/poll/${poll.short_id || pollId}" 
              style="background: #6b7280; color: white; padding: 14px 28px; text-decoration: none; border-radius: 8px; display: inline-block; font-weight: 500; font-size: 16px;">
             View Poll
           </a>
@@ -599,7 +599,7 @@ END:VTIMEZONE`,
       console.log(`[Calendar Invites] Sending email ${i + 1}/${uniqueVoters.length} to ${voter.participant_email}`)
       try {
         const personalizedHtml = htmlContent.replace('Hi there,', `Hi ${voter.participant_name || 'there'},`)
-        const personalizedText = `${voter.participant_name || 'Hi there'},\n\n${poll.creator_name} has scheduled the meeting based on your availability:\n\n${poll.title}${poll.description ? `\n${poll.description}` : ''}\n\n📅 Date: ${dateStr}\n🕐 Time: ${timeStr} (${validTimezone.replace('_', ' ')})${poll.location ? `\n📍 Location: ${poll.location}` : ''}\n\nA calendar invite has been attached to this email as invite.ics. You can also add it directly to your calendar:\n\nAdd to Google Calendar: ${googleCalendarUrl}\n\nView Poll: ${request.nextUrl.origin}/poll/${pollId}\n\nThis invite was sent because you voted "yes" or "maybe" for this time slot.`
+        const personalizedText = `${voter.participant_name || 'Hi there'},\n\n${poll.creator_name} has scheduled the meeting based on your availability:\n\n${poll.title}${poll.description ? `\n${poll.description}` : ''}\n\n📅 Date: ${dateStr}\n🕐 Time: ${timeStr} (${validTimezone.replace('_', ' ')})${poll.location ? `\n📍 Location: ${poll.location}` : ''}\n\nA calendar invite has been attached to this email as invite.ics. You can also add it directly to your calendar:\n\nAdd to Google Calendar: ${googleCalendarUrl}\n\nView Poll: ${request.nextUrl.origin}/poll/${poll.short_id || pollId}\n\nThis invite was sent because you voted "yes" or "maybe" for this time slot.`
         const subject = `📅 Calendar Invite: ${poll.title}`
         
         await sendInviteResend({

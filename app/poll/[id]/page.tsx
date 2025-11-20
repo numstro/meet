@@ -289,7 +289,7 @@ export default function PollPage() {
       const { data: responsesData, error: responsesError } = await supabase
         .from('poll_responses')
         .select('id, poll_id, option_id, participant_name, participant_email, response, comment, is_active, is_deleted')
-        .eq('poll_id', pollId)
+        .eq('poll_id', actualPollId)
         .eq('is_active', true)
         .eq('is_deleted', false)
 
@@ -536,7 +536,7 @@ export default function PollPage() {
         const { error: deleteError } = await supabase
           .from('poll_responses')
           .delete()
-          .eq('poll_id', pollId)
+          .eq('poll_id', actualPollId)
           .eq('participant_email', participantEmail)
           .not('option_id', 'in', `(${selectedOptionIds.join(',')})`)
 
@@ -850,7 +850,7 @@ export default function PollPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          pollId: poll.id,
+          pollId: poll.short_id || poll.id, // Send short_id if available, otherwise UUID
           optionId: selectedOptionId,
           creatorEmail: verifiedCreatorEmail,
           // Always send times (will be defaults if custom times not provided)
@@ -908,11 +908,14 @@ export default function PollPage() {
     setError('')
 
     try {
+      // Use actual poll UUID (from poll state) for queries
+      const actualPollId = poll.id
+      
       // Soft delete: just set deleted_at timestamp
       const { error: pollError } = await supabase
         .from('polls')
         .update({ deleted_at: new Date().toISOString() })
-        .eq('id', pollId)
+        .eq('id', actualPollId)
 
       if (pollError) throw pollError
 

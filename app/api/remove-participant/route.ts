@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
+import { resolvePollId } from '@/lib/poll-utils'
 
 export const dynamic = 'force-dynamic'
 
@@ -10,12 +11,21 @@ export const dynamic = 'force-dynamic'
  */
 export async function POST(request: NextRequest) {
   try {
-    const { pollId, participantEmail, creatorEmail } = await request.json()
+    const { pollId: pollIdentifier, participantEmail, creatorEmail } = await request.json()
     
-    if (!pollId || !participantEmail || !creatorEmail) {
+    if (!pollIdentifier || !participantEmail || !creatorEmail) {
       return NextResponse.json(
         { error: 'Missing required fields: pollId, participantEmail, creatorEmail' },
         { status: 400 }
+      )
+    }
+
+    // Resolve poll identifier (short_id or UUID) to actual UUID
+    const pollId = await resolvePollId(pollIdentifier)
+    if (!pollId) {
+      return NextResponse.json(
+        { error: 'Poll not found' },
+        { status: 404 }
       )
     }
 

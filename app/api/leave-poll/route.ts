@@ -9,12 +9,21 @@ export const dynamic = 'force-dynamic'
  */
 export async function POST(request: NextRequest) {
   try {
-    const { pollId, participantEmail } = await request.json()
+    const { pollId: pollIdentifier, participantEmail } = await request.json()
     
-    if (!pollId || !participantEmail) {
+    if (!pollIdentifier || !participantEmail) {
       return NextResponse.json(
         { error: 'Missing required fields: pollId, participantEmail' },
         { status: 400 }
+      )
+    }
+
+    // Resolve poll identifier (short_id or UUID) to actual UUID
+    const pollId = await resolvePollId(pollIdentifier)
+    if (!pollId) {
+      return NextResponse.json(
+        { error: 'Poll not found' },
+        { status: 404 }
       )
     }
 

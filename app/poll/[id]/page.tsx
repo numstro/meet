@@ -212,12 +212,43 @@ export default function PollPage() {
 
   const loadPollData = async () => {
     try {
-      // Load poll details
-      const { data: pollData, error: pollError } = await supabase
-        .from('polls')
-        .select('*')
-        .eq('id', pollId)
-        .single()
+      // Try to load by short_id first (for new short URLs), then fallback to UUID (for backward compatibility)
+      // Check if pollId looks like a UUID (contains hyphens) or is a short_id (6 characters, alphanumeric)
+      const isUUID = pollId.includes('-') && pollId.length === 36
+      
+      let pollData: any = null
+      let pollError: any = null
+      
+      if (isUUID) {
+        // Look up by UUID (backward compatibility)
+        const { data, error } = await supabase
+          .from('polls')
+          .select('*')
+          .eq('id', pollId)
+          .single()
+        pollData = data
+        pollError = error
+      } else {
+        // Look up by short_id (new short URLs)
+        const { data, error } = await supabase
+          .from('polls')
+          .select('*')
+          .eq('short_id', pollId)
+          .single()
+        pollData = data
+        pollError = error
+        
+        // If not found by short_id, try UUID as fallback (in case short_id wasn't set)
+        if (pollError && pollError.code === 'PGRST116') {
+          const { data: fallbackData, error: fallbackError } = await supabase
+            .from('polls')
+            .select('*')
+            .eq('id', pollId)
+            .single()
+          pollData = fallbackData
+          pollError = fallbackError
+        }
+      }
 
       if (pollError) throw pollError
       if (!pollData) {

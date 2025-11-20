@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { format, addDays, parseISO } from 'date-fns'
+import { nanoid } from 'nanoid'
 
 interface TimeOption {
   date: string
@@ -224,7 +225,34 @@ export default function CreatePollPage() {
     }
 
     try {
-      // Create the poll
+      // Generate a unique short_id (6 characters, URL-safe)
+      let shortId: string
+      let isUnique = false
+      let attempts = 0
+      const maxAttempts = 10
+      
+      while (!isUnique && attempts < maxAttempts) {
+        shortId = nanoid(6) // Generate 6-character ID
+        
+        // Check if this short_id already exists
+        const { data: existing } = await supabase
+          .from('polls')
+          .select('id')
+          .eq('short_id', shortId)
+          .single()
+        
+        if (!existing) {
+          isUnique = true
+        } else {
+          attempts++
+        }
+      }
+      
+      if (!isUnique) {
+        throw new Error('Failed to generate unique short ID. Please try again.')
+      }
+
+      // Create the poll with short_id
       const { data: pollResult, error: pollError } = await supabase
         .from('polls')
         .insert({
@@ -234,7 +262,8 @@ export default function CreatePollPage() {
           creator_email: pollData.creatorEmail,
           creator_ip: userIpAddress,
           location: pollData.location || null,
-          deadline: pollData.deadline || null
+          deadline: pollData.deadline || null,
+          short_id: shortId!
         })
         .select()
         .single()
@@ -242,6 +271,7 @@ export default function CreatePollPage() {
       if (pollError) throw pollError
 
       const pollId = pollResult.id
+      const pollShortId = pollResult.short_id || pollId // Use short_id if available, fallback to UUID
 
       // Create the time options - one for each selected time bucket
       const optionsToInsert = timeOptions.flatMap(option => 

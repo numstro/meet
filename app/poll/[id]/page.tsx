@@ -1102,7 +1102,11 @@ export default function PollPage() {
           <div className="flex gap-2">
             <input
               type="text"
-              value={typeof window !== 'undefined' ? window.location.href : ''}
+              value={typeof window !== 'undefined' 
+                ? (poll?.short_id 
+                    ? `${window.location.origin}/poll/${poll.short_id}${window.location.search}`
+                    : window.location.href)
+                : ''}
               readOnly
               className="flex-1 px-3 py-2 bg-white border border-blue-300 rounded-md font-mono text-sm"
             />

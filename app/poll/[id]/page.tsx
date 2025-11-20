@@ -7,6 +7,7 @@ import { format } from 'date-fns'
 
 interface Poll {
   id: string
+  short_id?: string | null
   title: string
   description: string
   creator_name: string

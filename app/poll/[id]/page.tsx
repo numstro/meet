@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { useParams, useSearchParams } from 'next/navigation'
+import { useParams, useSearchParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { format } from 'date-fns'
 
@@ -52,6 +52,7 @@ interface PollSummary {
 export default function PollPage() {
   const params = useParams()
   const searchParams = useSearchParams()
+  const router = useRouter()
   const pollId = params.id as string
 
   const [poll, setPoll] = useState<Poll | null>(null)

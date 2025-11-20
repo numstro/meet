@@ -92,12 +92,21 @@ export async function POST(request: NextRequest) {
       )
     }
     
-    const { pollId, optionId, creatorEmail, startTime, endTime, timezone } = await request.json()
+    const { pollId: pollIdentifier, optionId, creatorEmail, startTime, endTime, timezone } = await request.json()
     
-    if (!pollId || !optionId || !creatorEmail || !startTime || !endTime) {
+    if (!pollIdentifier || !optionId || !creatorEmail || !startTime || !endTime) {
       return NextResponse.json(
         { error: 'Missing required fields: pollId, optionId, creatorEmail, startTime, endTime' },
         { status: 400 }
+      )
+    }
+
+    // Resolve poll identifier (short_id or UUID) to actual UUID
+    const pollId = await resolvePollId(pollIdentifier)
+    if (!pollId) {
+      return NextResponse.json(
+        { error: 'Poll not found' },
+        { status: 404 }
       )
     }
 
@@ -343,7 +352,7 @@ export async function POST(request: NextRequest) {
       timezone: validTimezone, // Use TZID format like Google
       summary: poll.title,
       location: poll.location || undefined,
-      url: `${request.nextUrl.origin}/poll/${pollId}`,
+      url: `${request.nextUrl.origin}/poll/${poll.short_id || pollId}`, // Use short_id in URL if available
       organizer: {
         name: poll.creator_name,
         email: poll.creator_email

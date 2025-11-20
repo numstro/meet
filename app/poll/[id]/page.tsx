@@ -256,11 +256,14 @@ export default function PollPage() {
       }
       setPoll(pollData)
 
+      // Use the actual poll UUID (from pollData.id) for subsequent queries
+      const actualPollId = pollData.id
+
       // Load poll options
       const { data: optionsData, error: optionsError } = await supabase
         .from('poll_options')
         .select('*')
-        .eq('poll_id', pollId)
+        .eq('poll_id', actualPollId)
         .order('option_date')
         .order('start_time')
 
@@ -374,10 +377,13 @@ export default function PollPage() {
     if (!email) return
 
     try {
+      // Use actual poll UUID (from poll state) for queries
+      const actualPollId = poll?.id || pollId
+      
       const { data: existingResponses, error } = await supabase
         .from('poll_responses')
         .select('id, poll_id, option_id, participant_name, participant_email, response, comment, is_active, is_deleted')
-        .eq('poll_id', pollId)
+        .eq('poll_id', actualPollId)
         .eq('participant_email', email)
         .eq('is_active', true)
         .eq('is_deleted', false)
@@ -478,13 +484,16 @@ export default function PollPage() {
         }
       }
 
+      // Use actual poll UUID (from poll state) for queries
+      const actualPollId = poll?.id || pollId
+      
       // Use upsert (insert or update) to handle existing responses
       // Note: comment field is optional - will be ignored if column doesn't exist in DB
       // Set is_active = true and is_deleted = false when creating/updating votes
       const responsesToUpsert = Object.entries(userResponses).map(([optionId, response]) => {
         const commentValue = userComments[optionId]?.trim() || null
         const responseData: any = {
-          poll_id: pollId,
+          poll_id: actualPollId,
           option_id: optionId,
           participant_name: participantName,
           participant_email: participantEmail,

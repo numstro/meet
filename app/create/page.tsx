@@ -253,18 +253,25 @@ export default function CreatePollPage() {
       }
 
       // Create the poll with short_id
+      // Note: If short_id column doesn't exist yet, this will fail gracefully
+      const insertData: any = {
+        title: pollData.title,
+        description: pollData.description,
+        creator_name: pollData.creatorName,
+        creator_email: pollData.creatorEmail,
+        creator_ip: userIpAddress,
+        location: pollData.location || null,
+        deadline: pollData.deadline || null,
+      }
+      
+      // Only include short_id if it was successfully generated
+      if (shortId) {
+        insertData.short_id = shortId
+      }
+      
       const { data: pollResult, error: pollError } = await supabase
         .from('polls')
-        .insert({
-          title: pollData.title,
-          description: pollData.description,
-          creator_name: pollData.creatorName,
-          creator_email: pollData.creatorEmail,
-          creator_ip: userIpAddress,
-          location: pollData.location || null,
-          deadline: pollData.deadline || null,
-          short_id: shortId!
-        })
+        .insert(insertData)
         .select()
         .single()
 

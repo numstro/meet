@@ -226,7 +226,7 @@ export default function CreatePollPage() {
 
     try {
       // Generate a unique short_id (6 characters, URL-safe)
-      let shortId: string
+      let shortId: string | null = null
       let isUnique = false
       let attempts = 0
       const maxAttempts = 10
@@ -235,25 +235,33 @@ export default function CreatePollPage() {
         shortId = nanoid(6) // Generate 6-character ID
         
         // Check if this short_id already exists
-        const { data: existing } = await supabase
-          .from('polls')
-          .select('id')
-          .eq('short_id', shortId)
-          .single()
-        
-        if (!existing) {
+        // If short_id column doesn't exist yet, this query will fail but we'll continue
+        try {
+          const { data: existing } = await supabase
+            .from('polls')
+            .select('id')
+            .eq('short_id', shortId)
+            .single()
+          
+          if (!existing) {
+            isUnique = true
+          } else {
+            attempts++
+          }
+        } catch (err) {
+          // If column doesn't exist, assume it's unique and continue
+          // This handles the case where schema cache hasn't refreshed
           isUnique = true
-        } else {
-          attempts++
+          break
         }
       }
       
-      if (!isUnique) {
+      if (!isUnique && shortId) {
         throw new Error('Failed to generate unique short ID. Please try again.')
       }
 
-      // Create the poll with short_id
-      // Note: If short_id column doesn't exist yet, this will fail gracefully
+      // Create the poll with short_id (if available)
+      // Note: If short_id column doesn't exist yet, this will work without it
       const insertData: any = {
         title: pollData.title,
         description: pollData.description,

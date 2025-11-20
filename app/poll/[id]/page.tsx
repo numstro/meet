@@ -260,8 +260,8 @@ export default function PollPage() {
 
       // If we loaded by UUID but the poll has a short_id, redirect to the short URL
       if (isUUID && pollData.short_id) {
-        const newUrl = `/poll/${pollData.short_id}${window.location.search}`
-        window.history.replaceState({}, '', newUrl)
+        const queryString = typeof window !== 'undefined' ? window.location.search : ''
+        router.replace(`/poll/${pollData.short_id}${queryString}`)
       }
 
       // Use the actual poll UUID (from pollData.id) for subsequent queries

@@ -339,7 +339,7 @@ export default function PollPage() {
     setSummary(summaryData)
   }
 
-  const checkExistingVotes = async (email: string) => {
+  const checkExistingVotes = async (email: string, skipSetHasVoted: boolean = false) => {
     if (!email) return
 
     try {
@@ -359,7 +359,11 @@ export default function PollPage() {
         setParticipantName(existingVoter.participant_name)
         setParticipantEmail(email)
         setExistingVoterEmail(email)
-        setHasVoted(true)
+        
+        // Only set hasVoted to true if we're not in edit mode
+        if (!skipSetHasVoted) {
+          setHasVoted(true)
+        }
 
         // Load their existing responses and comments
         const responseMap: Record<string, 'yes' | 'no' | 'maybe'> = {}
@@ -404,8 +408,9 @@ export default function PollPage() {
     setIsEditingVotes(true)
     setHasVoted(false) // Allow them to see the voting form
     // Reload existing votes and comments to ensure we have the latest data
+    // Pass skipSetHasVoted=true so it doesn't reset hasVoted back to true
     if (existingVoterEmail) {
-      await checkExistingVotes(existingVoterEmail)
+      await checkExistingVotes(existingVoterEmail, true)
     }
   }
 

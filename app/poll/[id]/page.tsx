@@ -259,9 +259,13 @@ export default function PollPage() {
       setPoll(pollData)
 
       // If we loaded by UUID but the poll has a short_id, redirect to the short URL
-      if (isUUID && pollData.short_id) {
-        const queryString = typeof window !== 'undefined' ? window.location.search : ''
-        router.replace(`/poll/${pollData.short_id}${queryString}`)
+      // Use useEffect to handle redirect after component mounts to avoid hydration issues
+      if (isUUID && pollData.short_id && typeof window !== 'undefined') {
+        const queryString = window.location.search
+        // Use setTimeout to ensure redirect happens after state is set
+        setTimeout(() => {
+          router.replace(`/poll/${pollData.short_id}${queryString}`)
+        }, 0)
       }
 
       // Use the actual poll UUID (from pollData.id) for subsequent queries

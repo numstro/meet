@@ -294,12 +294,40 @@ export default function CreatePollPage() {
         insertData.short_id = shortId
       }
       
-      const { data: pollResult, error: pollError } = await supabase
+      let pollResult: any = null
+      let pollError: any = null
+      
+      // Try to insert with short_id first
+      const result = await supabase
         .from('polls')
         .insert(insertData)
         .select()
         .single()
-
+      
+      pollResult = result.data
+      pollError = result.error
+      
+      // If error is about schema cache (short_id column not found), retry without it
+      if (pollError && (
+        pollError.message?.includes('short_id') || 
+        pollError.message?.includes('schema cache') ||
+        pollError.code === '42703' // PostgreSQL error code for undefined column
+      )) {
+        console.warn('Schema cache issue detected, retrying without short_id:', pollError.message)
+        // Remove short_id and retry
+        const retryData = { ...insertData }
+        delete retryData.short_id
+        
+        const retryResult = await supabase
+          .from('polls')
+          .insert(retryData)
+          .select()
+          .single()
+        
+        pollResult = retryResult.data
+        pollError = retryResult.error
+      }
+      
       if (pollError) throw pollError
 
       const pollId = pollResult.id

@@ -1193,16 +1193,16 @@ export default function PollPage() {
                       
                       return (
                         <th key={option.id} className={`text-center p-2 border-r border-gray-200 min-w-[90px] ${isTopChoice ? 'bg-red-100 border-2 border-red-400' : ''}`}>
-                          <div className="text-xs text-gray-500 mb-1">
+                          <div className="text-xs text-gray-500 mb-1" style={{ color: '#6b7280' }}>
                             {format(new Date(option.option_date + 'T00:00:00'), 'MMM')}
                           </div>
-                          <div className="font-bold text-lg">
+                          <div className="font-bold text-lg text-gray-900" style={{ color: '#111827' }}>
                             {format(new Date(option.option_date + 'T00:00:00'), 'd')}
                           </div>
-                          <div className="text-xs text-gray-500 uppercase mb-1">
+                          <div className="text-xs text-gray-500 uppercase mb-1" style={{ color: '#6b7280' }}>
                             {format(new Date(option.option_date + 'T00:00:00'), 'EEE')}
                           </div>
-                          <div className="text-xs font-medium text-gray-700">
+                          <div className="text-xs font-medium text-gray-700" style={{ color: '#374151' }}>
                             {option.option_text === 'morning' && '🌅 Morning'}
                             {option.option_text === 'afternoon' && '☀️ Afternoon'}
                             {option.option_text === 'evening' && '🌙 Evening'}
@@ -1522,16 +1522,16 @@ export default function PollPage() {
                       </th>
                       {options.map((option) => (
                         <th key={option.id} className="text-center p-2 border-r border-gray-200 min-w-[90px]">
-                          <div className="text-xs text-gray-500 mb-1">
+                          <div className="text-xs text-gray-500 mb-1" style={{ color: '#6b7280' }}>
                             {format(new Date(option.option_date + 'T00:00:00'), 'MMM')}
                           </div>
-                          <div className="font-bold text-lg">
+                          <div className="font-bold text-lg text-gray-900" style={{ color: '#111827' }}>
                             {format(new Date(option.option_date + 'T00:00:00'), 'd')}
                           </div>
-                          <div className="text-xs text-gray-500 uppercase mb-1">
+                          <div className="text-xs text-gray-500 uppercase mb-1" style={{ color: '#6b7280' }}>
                             {format(new Date(option.option_date + 'T00:00:00'), 'EEE')}
                           </div>
-                          <div className="text-xs font-medium text-gray-700">
+                          <div className="text-xs font-medium text-gray-700" style={{ color: '#374151' }}>
                             {option.option_text === 'morning' && '🌅 Morning'}
                             {option.option_text === 'afternoon' && '☀️ Afternoon'}
                             {option.option_text === 'evening' && '🌙 Evening'}

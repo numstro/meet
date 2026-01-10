@@ -277,12 +277,12 @@ export default function MonitoringDashboard() {
       setEmailIPCorrelations(emailIPCorrelations)
 
       // Get daily statistics for the last 7 days
-      // Use UTC dates to match database timezone
+      // Use local timezone dates for better user experience
       const dailyStatsPromises = Array.from({ length: 7 }, (_, i) => {
         const date = subDays(now, i)
-        // Convert to UTC start/end of day
-        const dayStart = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), 0, 0, 0)).toISOString()
-        const dayEnd = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), 23, 59, 59, 999)).toISOString()
+        // Convert to local timezone start/end of day
+        const dayStart = startOfDay(date).toISOString()
+        const dayEnd = endOfDay(date).toISOString()
 
         return Promise.all([
           supabase
@@ -313,7 +313,7 @@ export default function MonitoringDashboard() {
           }, 0) || 0
           
           return {
-            date: format(date, 'yyyy-MM-dd'),
+            date: format(date, 'MMM d, yyyy'), // More readable format
             polls_created: polls.data?.length || 0,
             responses_submitted: responses.data?.length || 0,
             unique_ips: new Set(rateLimits.data?.map((rl: RateLimit) => rl.ip_address) || []).size,
@@ -589,6 +589,7 @@ export default function MonitoringDashboard() {
       <div className="bg-white rounded-lg shadow">
         <div className="px-6 py-4 border-b border-gray-200">
           <h2 className="text-lg font-semibold text-gray-900">Daily Statistics (Last 7 Days)</h2>
+          <p className="text-sm text-gray-500 mt-1">Dates shown in your local timezone</p>
         </div>
         
         <div className="overflow-x-auto">

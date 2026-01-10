@@ -33,3 +33,5 @@ END $$;
 -- Verify the update
 SELECT id, short_id, title FROM polls ORDER BY created_at DESC LIMIT 10;
 
+
+

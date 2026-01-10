@@ -197,7 +197,7 @@ export default function DemoPollPage() {
                   return (
                     <div key={option.id} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
                       <div>
-                        <div className="font-medium">{date}</div>
+                        <div className="font-medium text-gray-900">{date}</div>
                         <div className="text-sm text-gray-600">{time}</div>
                       </div>
                       
@@ -242,4 +242,5 @@ export default function DemoPollPage() {
     </div>
   )
 }
+
 

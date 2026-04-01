@@ -114,6 +114,9 @@ export default function PollPage() {
   // Organizer tools collapsed state
   const [isOrganizerToolsExpanded, setIsOrganizerToolsExpanded] = useState(false)
 
+  // Track whether we've already done the localStorage check after poll loads
+  const localStorageCheckedRef = useRef(false)
+
   // Participant removal state
   const [showLeavePollConfirm, setShowLeavePollConfirm] = useState(false)
   const [showRemoveParticipantConfirm, setShowRemoveParticipantConfirm] = useState(false)
@@ -151,6 +154,22 @@ export default function PollPage() {
       loadPollData()
     }
   }, [pollId])
+
+  // Silently recognize returning users from localStorage once poll data is available
+  useEffect(() => {
+    if (poll && !localStorageCheckedRef.current) {
+      localStorageCheckedRef.current = true
+      const storedEmail = localStorage.getItem('meetup_user_email')
+      const storedName = localStorage.getItem('meetup_user_name')
+      if (storedEmail?.trim()) {
+        // Pre-fill immediately so form is populated even if network call fails
+        setParticipantEmail(storedEmail)
+        if (storedName?.trim()) setParticipantName(storedName)
+        // Then check if they've already voted — will override with server data if so
+        checkExistingVotes(storedEmail)
+      }
+    }
+  }, [poll])
 
   // Auto-populate creator info from URL params (only when coming from poll creation)
   useEffect(() => {
@@ -477,6 +496,10 @@ export default function PollPage() {
     setIsSubmitting(true)
     setError('')
 
+    // Capture before any awaits so values are stable
+    const nameToSave = participantName
+    const emailToSave = participantEmail
+
     try {
       // Check if this is a new participant (not editing existing votes)
       const isNewParticipant = !existingVoterEmail || existingVoterEmail.toLowerCase() !== participantEmail.trim().toLowerCase()
@@ -561,6 +584,11 @@ export default function PollPage() {
       setHasVoted(true)
       setIsEditingVotes(false)
       setExistingVoterEmail(participantEmail)
+      // Remember this user for future visits
+      if (nameToSave.trim() && emailToSave.trim()) {
+        localStorage.setItem('meetup_user_name', nameToSave)
+        localStorage.setItem('meetup_user_email', emailToSave)
+      }
       // Reload poll data and refresh user's comments
       await loadPollData()
       // Also reload user's votes to ensure comments are loaded

@@ -36,6 +36,15 @@ export default function CreatePollPage() {
   // Ref for scrolling to new rows
   const tableRef = useRef<HTMLTableElement>(null)
 
+  // Pre-fill name/email from localStorage on mount
+  useEffect(() => {
+    const storedName = localStorage.getItem('meetup_user_name')
+    const storedEmail = localStorage.getItem('meetup_user_email')
+    if (storedName?.trim() && storedEmail?.trim()) {
+      setPollData(prev => ({ ...prev, creatorName: storedName, creatorEmail: storedEmail }))
+    }
+  }, [])
+
   // Time bucket options
   const timeBuckets = [
     { value: 'morning', label: '🌅 Morning', description: '8 AM - 12 PM' },
@@ -351,6 +360,10 @@ export default function CreatePollPage() {
       if (optionsError) throw optionsError
 
       // No need to record rate limits separately - polls table is now the source of truth!
+
+      // Remember creator for future visits
+      localStorage.setItem('meetup_user_name', pollData.creatorName)
+      localStorage.setItem('meetup_user_email', pollData.creatorEmail)
 
       // Redirect directly to the poll with creator info for auto-population
       const params = new URLSearchParams({

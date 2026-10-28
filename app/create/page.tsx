@@ -365,6 +365,19 @@ export default function CreatePollPage() {
       localStorage.setItem('meetup_user_name', pollData.creatorName)
       localStorage.setItem('meetup_user_email', pollData.creatorEmail)
 
+      // Send creator confirmation email (fire-and-forget)
+      const pollUrl = `${window.location.origin}/poll/${pollShortId}`
+      fetch('/api/send-confirmation', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          to: pollData.creatorEmail,
+          creatorName: pollData.creatorName,
+          pollTitle: pollData.title,
+          pollUrl,
+        }),
+      }).catch(() => {}) // non-blocking
+
       // Redirect directly to the poll with creator info for auto-population
       const params = new URLSearchParams({
         creatorName: pollData.creatorName,

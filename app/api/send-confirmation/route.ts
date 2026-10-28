@@ -3,7 +3,7 @@ import { Resend } from 'resend'
 
 export async function POST(request: NextRequest) {
   try {
-    const { to, name, date, time } = await request.json()
+    const { to, creatorName, pollTitle, pollUrl } = await request.json()
 
     if (!process.env.RESEND_API_KEY) {
       console.log('Resend API key not configured, skipping email')
@@ -12,41 +12,30 @@ export async function POST(request: NextRequest) {
 
     const resend = new Resend(process.env.RESEND_API_KEY)
 
-    const dateObj = new Date(`${date}T${time}`)
-    const formattedDateTime = dateObj.toLocaleString('en-US', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true
-    })
-
     const { data, error } = await resend.emails.send({
-      from: 'Schedule App <noreply@yourdomain.com>', // Replace with your domain
+      from: 'Meetup <noreply@numstro.com>',
       to: [to],
-      subject: 'Meeting Confirmation',
+      subject: `Your poll is live: ${pollTitle}`,
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2 style="color: #333;">Meeting Confirmed! 🎉</h2>
-          
-          <p>Hi ${name},</p>
-          
-          <p>Your meeting has been successfully scheduled for:</p>
-          
-          <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
-            <h3 style="margin: 0; color: #2563eb;">📅 ${formattedDateTime}</h3>
+          <h2 style="color: #1d4ed8;">Your poll is live!</h2>
+
+          <p>Hi ${creatorName},</p>
+
+          <p>You created a poll: <strong>${pollTitle}</strong></p>
+
+          <p>Share this link with your participants so they can vote on times:</p>
+
+          <div style="margin: 24px 0;">
+            <a href="${pollUrl}" style="display: inline-block; background-color: #2563eb; color: white; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: 600;">View Poll</a>
           </div>
-          
-          <p>We'll send you a reminder before the meeting.</p>
-          
-          <p>If you need to reschedule or cancel, please contact us as soon as possible.</p>
-          
+
+          <p style="color: #6b7280; font-size: 14px; word-break: break-all;">${pollUrl}</p>
+
           <hr style="margin: 30px 0; border: none; border-top: 1px solid #e5e7eb;">
-          
+
           <p style="color: #6b7280; font-size: 14px;">
-            This is an automated message from Schedule App.
+            This is an automated message from Meetup.
           </p>
         </div>
       `
@@ -63,6 +52,3 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
-
-
-
